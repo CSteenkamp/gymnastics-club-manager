@@ -296,7 +296,7 @@ export default function AdminPage() {
               { id: 'finances', name: 'Finances', icon: '💰' },
               { id: 'credits', name: 'Credits', icon: '💳' },
               { id: 'fee-adjustments', name: 'Fee Adjustments', icon: '⚖️' },
-              { id: 'classes', name: 'Classes', icon: '🏃‍♀️' },
+              { id: 'classes', name: 'Classes', icon: '🏃' },
               { id: 'reports', name: 'Reports', icon: '📈' }
             ].map((tab) => (
               <button

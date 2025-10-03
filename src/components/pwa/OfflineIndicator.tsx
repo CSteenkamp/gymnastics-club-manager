@@ -6,27 +6,35 @@ import { Wifi, WifiOff, RefreshCw } from 'lucide-react'
 
 export function OfflineIndicator() {
   const [isOnline, setIsOnline] = useState(true)
-  const [showOfflineMessage, setShowOfflineMessage] = useState(false)
+  const [showBackOnlineMessage, setShowBackOnlineMessage] = useState(false)
+  const [hasBeenOffline, setHasBeenOffline] = useState(false)
 
   useEffect(() => {
+    // Only run in browser environment
+    if (typeof window === 'undefined') return
+
     // Set initial online status
-    setIsOnline(navigator.onLine)
+    const initialOnlineStatus = navigator.onLine
+    setIsOnline(initialOnlineStatus)
 
     const handleOnline = () => {
       console.log('[PWA] App is back online')
       setIsOnline(true)
-      setShowOfflineMessage(false)
       
-      // Show brief "back online" message
-      setTimeout(() => {
-        setShowOfflineMessage(false)
-      }, 3000)
+      // Show brief "back online" message only if we were offline before
+      if (hasBeenOffline) {
+        setShowBackOnlineMessage(true)
+        setTimeout(() => {
+          setShowBackOnlineMessage(false)
+        }, 3000)
+      }
     }
 
     const handleOffline = () => {
       console.log('[PWA] App is offline')
       setIsOnline(false)
-      setShowOfflineMessage(true)
+      setHasBeenOffline(true)
+      setShowBackOnlineMessage(false)
     }
 
     window.addEventListener('online', handleOnline)
@@ -36,10 +44,10 @@ export function OfflineIndicator() {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }
-  }, [])
+  }, [hasBeenOffline])
 
-  // Don't show indicator if online and no message needed
-  if (isOnline && !showOfflineMessage) {
+  // Only show indicator when offline OR when showing back online message
+  if (isOnline && !showBackOnlineMessage) {
     return null
   }
 
@@ -57,14 +65,14 @@ export function OfflineIndicator() {
           )}
           
           <AlertDescription className={isOnline ? 'text-green-800' : 'text-amber-800'}>
-            {isOnline ? (
+            {isOnline && showBackOnlineMessage ? (
               <span className="flex items-center gap-2">
                 <span>Back online</span>
                 <RefreshCw className="h-3 w-3 animate-spin" />
               </span>
             ) : (
               <div>
-                <div className="font-medium">You're offline</div>
+                <div className="font-medium">You&apos;re offline</div>
                 <div className="text-sm">Some features may be limited</div>
               </div>
             )}

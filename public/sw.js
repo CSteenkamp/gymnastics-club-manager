@@ -219,7 +219,7 @@ async function handlePageRequest(request) {
         </head>
         <body>
           <div class="container">
-            <div class="icon">🏃‍♀️</div>
+            <div class="icon">🏃</div>
             <h1>You're Offline</h1>
             <p>It looks like you're not connected to the internet. Some features may not be available.</p>
             <button onclick="window.location.reload()">Try Again</button>

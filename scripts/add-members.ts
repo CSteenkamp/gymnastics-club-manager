@@ -77,7 +77,7 @@ const members: Member[] = [
 
 async function addMembers() {
   try {
-    console.log('🏃‍♀️ Adding Ceres Gymnastics Club members...')
+    console.log('🏃 Adding Ceres Gymnastics Club members...')
 
     // Get the club ID
     const club = await prisma.club.findFirst({

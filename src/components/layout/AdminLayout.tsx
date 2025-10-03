@@ -95,7 +95,7 @@ export function AdminLayout({ children, title = "Admin Dashboard", description }
               { id: 'import', name: 'Import', icon: '📥', path: '/admin/import' },
               { id: 'documents', name: 'Documents', icon: '📄', path: '/admin/documents' },
               { id: 'finances', name: 'Finances', icon: '💰', path: '/admin/finances' },
-              { id: 'classes', name: 'Classes', icon: '🏃‍♀️', path: '/admin/classes' },
+              { id: 'classes', name: 'Classes', icon: '🏃', path: '/admin/classes' },
               { id: 'reports', name: 'Reports', icon: '📈', path: '/admin/reports' }
             ].map((tab) => (
               <button
