@@ -1,0 +1,1042 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Multi-tenant Club model
+model Club {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  phone       String?
+  address     String?
+  website     String?
+  
+  // Branding & White-label
+  logo        String?  // Logo file path
+  favicon     String?  // Favicon file path
+  colors      Json?    // Brand colors for customization
+  theme       ClubTheme @default(DEFAULT)
+  customCss   String?  // Custom CSS overrides
+  
+  // Business Information
+  registrationNumber String?
+  taxNumber          String?
+  bankingDetails     Json?   // Bank account information
+  
+  // Settings & Configuration
+  settings    Json?    // Club-specific settings
+  features    Json?    // Enabled/disabled features
+  
+  // Subscription & Billing (for SaaS model)
+  subscriptionTier   SubscriptionTier @default(BASIC)
+  subscriptionStatus SubscriptionStatus @default(ACTIVE)
+  subscriptionExpiry DateTime?
+  
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  users       User[]
+  children    Child[]
+  families    Family[]
+  feeStructures FeeStructure[]
+  feeTypes    FeeType[]
+  discounts   Discount[]
+  invoices    Invoice[]
+  payments    Payment[]
+  classes     Class[]
+  schedules   Schedule[]
+  enrollments Enrollment[]
+  attendance  Attendance[]
+  documents   Document[]
+  consentRecords ConsentRecord[]
+  dataProcessingLogs DataProcessingLog[]
+  auditLogs   AuditLog[]
+  creditAccounts CreditAccount[]
+  creditTransactions CreditTransaction[]
+  creditApplications CreditApplication[]
+  feeAdjustments FeeAdjustment[]
+
+  @@map("clubs")
+}
+
+// User model for parents/guardians and admin users
+model User {
+  id        String   @id @default(cuid())
+  clubId    String
+  email     String
+  phone     String?
+  firstName String
+  lastName  String
+  password  String
+  role      UserRole @default(PARENT)
+  isActive  Boolean  @default(true)
+  
+  // Notification preferences
+  emailNotifications Boolean @default(true)
+  smsNotifications   Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  club      Club       @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  children  Child[]
+  invoices  Invoice[]
+  parentPayments Payment[] @relation("ParentPayments")
+  userPayments   Payment[] @relation("UserPayments") // Legacy support
+  documents UserDocument[]
+  consentRecords ConsentRecord[]
+  dataProcessingLogs DataProcessingLog[]
+  auditLogs AuditLog[]
+  
+  // Scheduling relationships
+  coachSchedules Schedule[] @relation("CoachSchedules")
+  coachClasses   Class[]    @relation("CoachClasses")
+  attendanceMarked Attendance[] @relation("AttendanceMarker")
+  
+  // Family relationships
+  primaryFamilies Family[] @relation("PrimaryFamilyContact")
+  
+  // Credit/prepayment relationships
+  creditAccount CreditAccount?
+  creditTransactions CreditTransaction[]
+
+  @@unique([clubId, email])
+  @@map("users")
+}
+
+// Child/Student model
+model Child {
+  id          String      @id @default(cuid())
+  clubId      String
+  familyId    String?     // Link to family group
+  firstName   String
+  lastName    String
+  dateOfBirth DateTime?
+  gender      Gender?     // Child's gender
+  level       String      // RR, R, Pre-Level 1, Level 1-5
+  status      ChildStatus @default(ACTIVE)
+  monthlyFee  Decimal?    // Override fee if different from level default
+  notes       String?     // Special circumstances, discounts, etc.
+  
+  // Enhanced member management fields
+  emergencyContact Json?   // Emergency contact information
+  medicalInfo     Json?   // Medical conditions, allergies, etc.
+  joinDate        DateTime @default(now())
+  lastActiveDate  DateTime?
+  
+  // Progression tracking
+  previousLevel   String?
+  levelChangeDate DateTime?
+  nextAssessment  DateTime?
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relationships
+  club         Club           @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  family       Family?        @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  parents      User[]
+  invoiceItems InvoiceItem[]
+  activities   ChildActivity[]
+  consentRecords ConsentRecord[]
+  dataProcessingLogs DataProcessingLog[]
+  discountApplications DiscountApplication[]
+  
+  // Scheduling relationships
+  enrollments  Enrollment[]
+  attendance   Attendance[]
+  
+  // Status tracking
+  statusHistory MemberStatusHistory[]
+  
+  // Fee adjustments
+  feeAdjustments FeeAdjustment[]
+  
+  @@map("children")
+}
+
+// Family grouping model
+model Family {
+  id          String   @id @default(cuid())
+  clubId      String
+  familyName  String   // Usually surname or combined names
+  primaryContact String? // Primary parent/guardian ID
+  
+  // Family preferences and settings
+  communicationPreferences Json? // How they prefer to be contacted
+  billingPreferences      Json? // Billing address, payment preferences
+  emergencyContacts       Json? // Additional emergency contacts
+  
+  // Family-level discounts and settings
+  familyDiscount         Decimal? // Custom family discount
+  notes                  String?  // Family-specific notes
+  
+  // Status tracking
+  isActive               Boolean  @default(true)
+  registrationDate       DateTime @default(now())
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  club        Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  children    Child[]
+  primaryParent User?  @relation("PrimaryFamilyContact", fields: [primaryContact], references: [id], onDelete: SetNull)
+  
+  @@map("families")
+}
+
+// Enhanced member status tracking
+model MemberStatusHistory {
+  id          String      @id @default(cuid())
+  childId     String
+  fromStatus  ChildStatus
+  toStatus    ChildStatus
+  reason      String?     // Reason for status change
+  effectiveDate DateTime  @default(now())
+  changedBy   String      // User ID who made the change
+  notes       String?
+  
+  // Relationships
+  child       Child       @relation(fields: [childId], references: [id], onDelete: Cascade)
+  
+  @@map("member_status_history")
+}
+
+// Fee structure per club - Enhanced for multiple fee types
+model FeeStructure {
+  id          String   @id @default(cuid())
+  clubId      String
+  level       String   // RR, R, Pre-Level 1, Level 1-5
+  monthlyFee  Decimal
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  feeTypes FeeType[]
+
+  @@unique([clubId, level])
+  @@map("fee_structures")
+}
+
+// Individual fee types that can be applied
+model FeeType {
+  id              String        @id @default(cuid())
+  clubId          String
+  feeStructureId  String?       // Optional link to specific level
+  name            String        // e.g., "SAGF Registration", "Equipment Fee", "Competition Entry"
+  code            String        // Short code for identification
+  category        FeeCategory
+  amount          Decimal
+  frequency       FeeFrequency  @default(ONE_TIME)
+  description     String?
+  isOptional      Boolean       @default(false)
+  isActive        Boolean       @default(true)
+  
+  // Applicability rules
+  applicableLevels String[]      // Which levels this fee applies to (empty = all levels)
+  ageRestrictions Json?         // Min/max age rules
+  dateRestrictions Json?        // Valid from/to dates
+  
+  // Auto-application rules
+  autoApply       Boolean       @default(false)
+  applyConditions Json?         // Conditions for auto-application
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relationships
+  club            Club          @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  feeStructure    FeeStructure? @relation(fields: [feeStructureId], references: [id], onDelete: SetNull)
+  discounts       Discount[]
+  
+  @@unique([clubId, code])
+  @@map("fee_types")
+}
+
+// Discount and scholarship management
+model Discount {
+  id              String        @id @default(cuid())
+  clubId          String
+  feeTypeId       String?       // Specific fee type or null for all fees
+  name            String
+  code            String
+  type            DiscountType
+  value           Decimal       // Amount or percentage
+  maxAmount       Decimal?      // Maximum discount amount for percentage discounts
+  
+  // Applicability
+  applicableLevels String[]     // Which levels eligible
+  isActive        Boolean       @default(true)
+  validFrom       DateTime?
+  validTo         DateTime?
+  usageLimit      Int?          // How many times it can be used
+  usageCount      Int           @default(0)
+  
+  // Family discounts
+  familyDiscount  Boolean       @default(false)
+  siblingCount    Int?          // Minimum siblings required
+  
+  description     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relationships
+  club            Club          @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  feeType         FeeType?      @relation(fields: [feeTypeId], references: [id], onDelete: Cascade)
+  applications    DiscountApplication[]
+  
+  @@unique([clubId, code])
+  @@map("discounts")
+}
+
+// Track discount applications to children
+model DiscountApplication {
+  id          String   @id @default(cuid())
+  discountId  String
+  childId     String
+  invoiceId   String?  // Which invoice the discount was applied to
+  amount      Decimal  // Actual discount amount applied
+  appliedAt   DateTime @default(now())
+  reason      String?  // Why this discount was applied
+
+  // Relationships
+  discount    Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  child       Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  invoice     Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@map("discount_applications")
+}
+
+// Invoice model
+model Invoice {
+  id          String        @id @default(cuid())
+  clubId      String
+  userId      String        // Parent/Guardian
+  invoiceNumber String      // Auto-generated
+  month       Int           // 1-12
+  year        Int
+  subtotal    Decimal
+  discount    Decimal       @default(0)
+  total       Decimal
+  status      InvoiceStatus @default(PENDING)
+  dueDate     DateTime
+  paidAt      DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relationships
+  club     Club          @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items    InvoiceItem[]
+  payments Payment[]
+  discountApplications DiscountApplication[]
+  creditTransactions CreditTransaction[]
+  creditApplications CreditApplication[]
+
+  @@unique([clubId, invoiceNumber])
+  @@map("invoices")
+}
+
+// Invoice items (line items)
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  childId     String?  // Null for family-level items
+  description String
+  amount      Decimal
+  quantity    Int     @default(1)
+  type        InvoiceItemType
+
+  // Relationships
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  child   Child?  @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_items")
+}
+
+// Payment tracking
+model Payment {
+  id                    String        @id @default(cuid())
+  clubId                String
+  parentId              String        // Parent/Guardian (updated field name)
+  invoiceId             String?       // Can be null for prepayments
+  amount                Decimal
+  status                PaymentStatus @default(PENDING)
+  method                PaymentMethod
+  reference             String?       // Bank reference, etc.
+  notes                 String?
+  externalTransactionId String?       // Gateway transaction ID
+  metadata              Json?         // Gateway-specific data
+  paidAt                DateTime?     // When payment was completed
+  processedAt           DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  // Legacy support
+  userId                String?       // Keep for backward compatibility
+  payfastTransactionId  String?       // Legacy field
+
+  // Activity tracking
+  activities            PaymentActivity[]
+
+  // Relationships
+  club    Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  parent  User     @relation("ParentPayments", fields: [parentId], references: [id], onDelete: Cascade)
+  user    User?    @relation("UserPayments", fields: [userId], references: [id], onDelete: SetNull)
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  creditTransactions CreditTransaction[]
+
+  @@map("payments")
+}
+
+// Payment activity log
+model PaymentActivity {
+  id          String   @id @default(cuid())
+  paymentId   String
+  action      String   // e.g., "created", "pending", "completed", "failed"
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  // Relationships
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("payment_activities")
+}
+
+// Class management - individual class instances and templates
+model Class {
+  id          String      @id @default(cuid())
+  clubId      String
+  scheduleId  String?     // Optional link to recurring schedule
+  name        String
+  level       String      // RR, R, Pre-Level 1, Level 1-5
+  coachId     String?     // Optional coach assignment
+  date        DateTime?   // Specific date for class instances
+  startTime   DateTime?   // Specific start time for instances
+  endTime     DateTime?   // Specific end time for instances
+  maxCapacity Int         @default(12)
+  location    String?     // Room/area within the gym
+  notes       String?     // Class-specific notes
+  status      ClassStatus @default(SCHEDULED)
+  description String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relationships
+  club        Club         @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  schedule    Schedule?    @relation("ClassSchedule", fields: [scheduleId], references: [id])
+  coach       User?        @relation("CoachClasses", fields: [coachId], references: [id])
+  attendance  Attendance[] // Individual class attendance
+
+  @@map("classes")
+}
+
+// Schedule management - recurring class schedules
+model Schedule {
+  id          String    @id @default(cuid())
+  clubId      String
+  classId     String?   // Optional link to class template
+  name        String    // e.g. "Level 1 Monday Evening"
+  level       String?   // RR, R, Pre-Level 1, Level 1-5
+  coachId     String?   // Optional coach assignment
+  dayOfWeek   DayOfWeek // Use enum instead of Int
+  startTime   String    // Format: "HH:MM" (e.g. "17:00")
+  endTime     String    // Format: "HH:MM" (e.g. "18:00")
+  maxCapacity Int       @default(12)
+  location    String?   // Room/area within the gym
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relationships
+  club        Club          @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  classes     Class[]       @relation("ClassSchedule") // Classes linked to this schedule
+  coach       User?         @relation("CoachSchedules", fields: [coachId], references: [id])
+  enrollments Enrollment[]  // New enrollment system
+
+  @@unique([clubId, name])
+  @@map("schedules")
+}
+
+// Document management (policies, forms, etc.)
+model Document {
+  id              String          @id @default(cuid())
+  clubId          String
+  title           String
+  description     String?
+  filePath        String
+  fileName        String
+  fileSize        Int
+  fileType        String
+  mimeType        String
+  category        DocumentCategory @default(GENERAL)
+  requiresSignature Boolean       @default(false)
+  isPublic        Boolean         @default(false) // Public to all parents
+  isMandatory     Boolean         @default(false) // Required for all parents
+  version         String          @default("1.0")
+  expiresAt       DateTime?       // Optional expiry date
+  isActive        Boolean         @default(true)
+  createdBy       String          // User who uploaded
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // POPI Act compliance fields
+  dataProcessingPurpose String?   // Why this document processes personal data
+  retentionPeriod      Int?       // Data retention period in months
+  
+  // Relationships
+  club            Club              @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  userDocuments   UserDocument[]
+  consentRecords  ConsentRecord[]
+
+  @@map("documents")
+}
+
+// User document signatures/acknowledgments with enhanced tracking
+model UserDocument {
+  id              String    @id @default(cuid())
+  userId          String
+  documentId      String
+  viewedAt        DateTime? // When user first viewed
+  signedAt        DateTime? // When user signed
+  signature       String?   // Digital signature data (base64 encoded)
+  signatureType   SignatureType? // Type of signature used
+  ipAddress       String?   // IP where signature was made
+  userAgent       String?   // Browser info for audit
+  isAcknowledged  Boolean   @default(false)
+  reminderSentAt  DateTime? // Last reminder sent
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relationships
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentId])
+  @@map("user_documents")
+}
+
+// Consent tracking for POPI Act compliance
+model ConsentRecord {
+  id              String        @id @default(cuid())
+  clubId          String
+  userId          String        // Parent giving consent
+  childId         String?       // Child the consent is for (if applicable)
+  documentId      String?       // Related document (if any)
+  consentType     ConsentType
+  purpose         String        // What the consent is for
+  isGranted       Boolean       @default(false)
+  grantedAt       DateTime?
+  revokedAt       DateTime?
+  expiresAt       DateTime?     // Optional expiry
+  ipAddress       String?       // Where consent was given
+  userAgent       String?       // Browser info
+  version         String        @default("1.0")
+  legalBasis      LegalBasis    @default(CONSENT)
+  
+  // Marketing consent specifics
+  emailMarketing  Boolean?      // Consent for email marketing
+  smsMarketing    Boolean?      // Consent for SMS marketing
+  photoVideo      Boolean?      // Consent for photos/videos
+  socialMedia     Boolean?      // Consent for social media use
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relationships
+  club     Club      @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  child    Child?    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  document Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, consentType])
+  @@map("consent_records")
+}
+
+// Data processing audit log for POPI compliance
+model DataProcessingLog {
+  id              String              @id @default(cuid())
+  clubId          String
+  userId          String?             // User who performed action
+  childId         String?             // Child whose data was processed
+  action          DataProcessingAction
+  purpose         String              // Why the data was processed
+  dataTypes       String[]            // Types of data processed
+  legalBasis      LegalBasis
+  source          String?             // Where the action originated
+  ipAddress       String?
+  userAgent       String?
+  metadata        Json?               // Additional context
+  createdAt       DateTime            @default(now())
+
+  // Relationships
+  club  Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  child Child? @relation(fields: [childId], references: [id], onDelete: SetNull)
+
+  @@map("data_processing_logs")
+}
+
+// Child activity history (level changes, fee changes, etc.)
+model ChildActivity {
+  id          String           @id @default(cuid())
+  childId     String
+  type        ActivityType
+  description String
+  oldValue    String?
+  newValue    String?
+  createdBy   String           // User ID
+  createdAt   DateTime         @default(now())
+
+  // Relationships
+  child Child @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@map("child_activities")
+}
+
+// Audit log for admin actions
+model AuditLog {
+  id          String   @id @default(cuid())
+  clubId      String
+  userId      String
+  action      String
+  entity      String   // Table name
+  entityId    String   // Record ID
+  oldValues   Json?
+  newValues   Json?
+  createdAt   DateTime @default(now())
+
+  // Relationships
+  club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+}
+
+// Enums
+enum UserRole {
+  PARENT
+  ADMIN
+  FINANCE_ADMIN
+  COACH
+  SUPER_ADMIN
+}
+
+enum ChildStatus {
+  ACTIVE
+  INACTIVE
+  WITHDRAWN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum InvoiceItemType {
+  MONTHLY_FEE
+  ONCE_OFF
+  COMPETITION
+  EQUIPMENT
+  CLOTHING
+  REGISTRATION
+  HOLIDAY_PROGRAM
+  DISCOUNT
+  ADJUSTMENT
+}
+
+enum PaymentMethod {
+  EFT
+  CASH
+  CARD
+  ONLINE
+  PAYFAST
+  YOCO
+  OZOW
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum ActivityType {
+  LEVEL_CHANGE
+  FEE_CHANGE
+  STATUS_CHANGE
+  ENROLLMENT
+  WITHDRAWAL
+  PAYMENT
+  NOTE_ADDED
+}
+
+enum ClassStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+// Document and POPI Act enums
+enum DocumentCategory {
+  GENERAL
+  POLICY
+  TERMS_CONDITIONS
+  PRIVACY_POLICY
+  CONSENT_FORM
+  MEDICAL_FORM
+  PHOTO_VIDEO_CONSENT
+  EMERGENCY_CONTACT
+  WAIVER
+  REGISTRATION
+  POPI_NOTICE
+  DATA_PROCESSING_AGREEMENT
+}
+
+enum SignatureType {
+  ELECTRONIC
+  DIGITAL
+  TYPED
+  DRAWN
+}
+
+enum ConsentType {
+  DATA_PROCESSING
+  MARKETING_EMAIL
+  MARKETING_SMS
+  PHOTO_VIDEO
+  SOCIAL_MEDIA
+  MEDICAL_TREATMENT
+  EMERGENCY_CONTACT
+  GENERAL_TERMS
+}
+
+enum LegalBasis {
+  CONSENT
+  CONTRACT
+  LEGAL_OBLIGATION
+  VITAL_INTERESTS
+  PUBLIC_TASK
+  LEGITIMATE_INTERESTS
+}
+
+enum DataProcessingAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  EXPORT
+  SHARE
+  ANONYMIZE
+  ARCHIVE
+  RESTORE
+}
+
+// Branding and subscription enums
+enum ClubTheme {
+  DEFAULT
+  MODERN
+  CLASSIC
+  COLORFUL
+  MINIMAL
+  DARK
+  SPORT
+  CUSTOM
+}
+
+enum SubscriptionTier {
+  BASIC
+  STANDARD
+  PREMIUM
+  ENTERPRISE
+  CUSTOM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+  TRIAL
+}
+
+// Enhanced fee management enums
+enum FeeCategory {
+  MONTHLY_FEE
+  REGISTRATION
+  EQUIPMENT
+  CLOTHING
+  COMPETITION
+  TRAVEL
+  ASSESSMENT
+  COACHING
+  ADMINISTRATION
+  INSURANCE
+  FACILITY
+  OTHER
+}
+
+enum FeeFrequency {
+  ONE_TIME
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+  PER_SESSION
+  PER_COMPETITION
+  PER_TERM
+}
+
+enum DiscountType {
+  FIXED_AMOUNT
+  PERCENTAGE
+  WAIVER
+}
+
+// Credit and prepayment enums
+enum CreditTransactionType {
+  CREDIT_ADDED     // Credit was added to account
+  CREDIT_USED      // Credit was used to pay invoice
+  CREDIT_REFUNDED  // Credit was refunded back to user
+  CREDIT_EXPIRED   // Credit expired (if applicable)
+  CREDIT_ADJUSTED  // Manual adjustment by admin
+  CREDIT_REVERSED  // Transaction was reversed
+}
+
+enum CreditSource {
+  PAYMENT_OVERPAYMENT  // Overpayment automatically converted to credit
+  MANUAL_ADDITION      // Admin manually added credit
+  REFUND              // Refund converted to credit
+  PROMOTION           // Promotional credit
+  TRANSFER            // Credit transferred from another account
+  SYSTEM_ADJUSTMENT   // System-generated adjustment
+}
+
+enum CreditApplicationStatus {
+  APPLIED   // Credit successfully applied to invoice
+  REVERSED  // Application was reversed
+  PENDING   // Application pending approval
+}
+
+enum FeeAdjustmentType {
+  PERMANENT  // Changes the base monthly fee going forward
+  TEMPORARY  // One-time adjustment that reverts after specified period
+}
+
+// Enrollment model - links children to recurring schedules
+model Enrollment {
+  id         String   @id @default(cuid())
+  clubId     String
+  childId    String
+  scheduleId String
+  startDate  DateTime @default(now())
+  endDate    DateTime? // Optional end date for temporary enrollments
+  isActive   Boolean  @default(true)
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relationships
+  club     Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  child    Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@unique([childId, scheduleId])
+  @@map("enrollments")
+}
+
+// Attendance model - tracks attendance for individual classes
+model Attendance {
+  id       String           @id @default(cuid())
+  clubId   String
+  classId  String
+  childId  String
+  status   AttendanceStatus @default(PRESENT)
+  notes    String?          // e.g. "Arrived 10 min late", "Left early due to injury"
+  markedAt DateTime         @default(now())
+  markedBy String?          // User ID who marked attendance
+
+  // Relationships
+  club         Club  @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  class        Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  child        Child @relation(fields: [childId], references: [id], onDelete: Cascade)
+  markedByUser User? @relation("AttendanceMarker", fields: [markedBy], references: [id])
+
+  @@unique([classId, childId])
+  @@map("attendance")
+}
+
+// Credit account management for prepayments
+model CreditAccount {
+  id              String   @id @default(cuid())
+  clubId          String
+  userId          String   @unique // One credit account per user
+  currentBalance  Decimal  @default(0)
+  totalCreditsAdded Decimal @default(0)
+  totalCreditsUsed  Decimal @default(0)
+  isActive        Boolean  @default(true)
+  minimumBalance  Decimal  @default(0) // Alert threshold
+  maximumBalance  Decimal? // Optional credit limit
+  autoTopUp       Boolean  @default(false)
+  autoTopUpAmount Decimal?
+  autoTopUpThreshold Decimal?
+  
+  // Metadata
+  notes           String?
+  lastActivity    DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relationships
+  club            Club              @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions    CreditTransaction[]
+  applications    CreditApplication[]
+
+  @@map("credit_accounts")
+}
+
+// Credit transaction history
+model CreditTransaction {
+  id              String            @id @default(cuid())
+  clubId          String
+  creditAccountId String
+  userId          String
+  type            CreditTransactionType
+  amount          Decimal
+  balanceBefore   Decimal
+  balanceAfter    Decimal
+  description     String
+  reference       String?           // External reference (payment ID, invoice ID, etc.)
+  relatedInvoiceId String?          // If credit was applied to an invoice
+  relatedPaymentId String?          // If credit came from a payment
+  
+  // Transaction metadata
+  source          CreditSource
+  approvedBy      String?           // Admin who approved (if manual)
+  reversedBy      String?           // Admin who reversed
+  reversedAt      DateTime?
+  isReversed      Boolean           @default(false)
+  reverseReason   String?
+  
+  // Processing info
+  processedAt     DateTime          @default(now())
+  ipAddress       String?
+  userAgent       String?
+  metadata        Json?
+
+  createdAt       DateTime          @default(now())
+
+  // Relationships
+  club            Club              @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  creditAccount   CreditAccount     @relation(fields: [creditAccountId], references: [id], onDelete: Cascade)
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoice         Invoice?          @relation(fields: [relatedInvoiceId], references: [id], onDelete: SetNull)
+  payment         Payment?          @relation(fields: [relatedPaymentId], references: [id], onDelete: SetNull)
+
+  @@map("credit_transactions")
+}
+
+// Credit applications to invoices
+model CreditApplication {
+  id              String        @id @default(cuid())
+  clubId          String
+  creditAccountId String
+  invoiceId       String
+  amount          Decimal
+  appliedAt       DateTime      @default(now())
+  appliedBy       String        // User ID who applied the credit
+  description     String?
+  
+  // Status tracking
+  status          CreditApplicationStatus @default(APPLIED)
+  reversedAt      DateTime?
+  reversedBy      String?
+  reverseReason   String?
+
+  // Relationships
+  club            Club          @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  creditAccount   CreditAccount @relation(fields: [creditAccountId], references: [id], onDelete: Cascade)
+  invoice         Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("credit_applications")
+}
+
+// Fee adjustment management for individual monthly fee changes
+model FeeAdjustment {
+  id              String              @id @default(cuid())
+  childId         String
+  clubId          String
+  adjustmentType  FeeAdjustmentType
+  originalFee     Decimal
+  adjustedFee     Decimal
+  reason          String
+  effectiveMonth  Int                 // Month when adjustment takes effect (1-12)
+  effectiveYear   Int                 // Year when adjustment takes effect
+  expiryMonth     Int?                // For temporary adjustments only (1-12)
+  expiryYear      Int?                // For temporary adjustments only
+  isActive        Boolean             @default(true)
+  appliedBy       String              // Admin user ID who created the adjustment
+  appliedAt       DateTime            @default(now())
+  notes           String?
+  
+  // Metadata for tracking
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  // Relationships
+  child           Child               @relation(fields: [childId], references: [id], onDelete: Cascade)
+  club            Club                @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@map("fee_adjustments")
+}
+
