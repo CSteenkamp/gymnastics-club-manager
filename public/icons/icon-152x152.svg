@@ -1,0 +1,27 @@
+
+<svg width="152" height="152" viewBox="0 0 152 152" xmlns="http://www.w3.org/2000/svg">
+  <rect width="152" height="152" fill="#7c3aed" rx="22.8"/>
+  <g transform="translate(15.200000000000001, 15.200000000000001)">
+    <!-- Gymnastics figure -->
+    <circle cx="60.800000000000004" cy="30.400000000000002" r="12.16" fill="white"/>
+    <path d="M 60.800000000000004 42.56 
+             L 45.6 76
+             L 38 98.8
+             M 60.800000000000004 42.56
+             L 76 76
+             L 83.60000000000001 98.8
+             M 60.800000000000004 42.56
+             L 53.199999999999996 60.800000000000004
+             L 30.400000000000002 53.199999999999996
+             M 60.800000000000004 42.56
+             L 68.4 60.800000000000004
+             L 91.2 53.199999999999996" 
+          stroke="white" stroke-width="3.04" fill="none" stroke-linecap="round"/>
+  </g>
+  <text x="76" y="136.8" 
+        text-anchor="middle" 
+        fill="white" 
+        font-family="system-ui, sans-serif" 
+        font-size="18.24" 
+        font-weight="bold">CG</text>
+</svg>
