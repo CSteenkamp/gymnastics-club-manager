@@ -7,13 +7,15 @@ import { DayOfWeek } from '@prisma/client'
 // GET a specific schedule
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
+
     // Verify authentication
     const authHeader = request.headers.get('authorization')
     const token = authHeader?.replace('Bearer ', '')
-    
+
     if (!token) {
       return NextResponse.json<ApiResponse>({
         success: false,
@@ -31,11 +33,11 @@ export async function GET(
 
     const schedule = await prisma.schedule.findFirst({
       where: {
-        id: params.id,
+        id,
         clubId: payload.clubId
       },
       include: {
-        coach: {
+        users: {
           select: {
             id: true,
             firstName: true,
@@ -45,13 +47,13 @@ export async function GET(
         },
         enrollments: {
           include: {
-            child: {
+            children: {
               select: {
                 id: true,
                 firstName: true,
                 lastName: true,
                 level: true,
-                parents: {
+                users: {
                   select: {
                     id: true,
                     firstName: true,
@@ -106,13 +108,15 @@ export async function GET(
 // UPDATE a schedule
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
+
     // Verify authentication (admin/coach only)
     const authHeader = request.headers.get('authorization')
     const token = authHeader?.replace('Bearer ', '')
-    
+
     if (!token) {
       return NextResponse.json<ApiResponse>({
         success: false,
@@ -131,7 +135,7 @@ export async function PUT(
     // Check if schedule exists and belongs to club
     const existingSchedule = await prisma.schedule.findFirst({
       where: {
-        id: params.id,
+        id,
         clubId: payload.clubId
       }
     })
@@ -194,7 +198,7 @@ export async function PUT(
           clubId: payload.clubId,
           dayOfWeek: newDayOfWeek as DayOfWeek,
           isActive: true,
-          id: { not: params.id }, // Exclude current schedule
+          id: { not: id }, // Exclude current schedule
           OR: [
             {
               AND: [
@@ -245,10 +249,12 @@ export async function PUT(
       }
     }
 
-    const updateData: any = {}
+    const updateData: any = {
+      updatedAt: new Date()
+    }
     if (name !== undefined) updateData.name = name
     if (level !== undefined) updateData.level = level
-    if (coachId !== undefined) updateData.coachId = coachId
+    if (coachId !== undefined) updateData.coachId = coachId || null
     if (dayOfWeek !== undefined) updateData.dayOfWeek = dayOfWeek as DayOfWeek
     if (startTime !== undefined) updateData.startTime = startTime
     if (endTime !== undefined) updateData.endTime = endTime
@@ -258,10 +264,10 @@ export async function PUT(
     if (isActive !== undefined) updateData.isActive = isActive
 
     const updatedSchedule = await prisma.schedule.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: {
-        coach: {
+        users: {
           select: {
             id: true,
             firstName: true,
@@ -296,13 +302,15 @@ export async function PUT(
 // DELETE a schedule
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
+
     // Verify authentication (admin only)
     const authHeader = request.headers.get('authorization')
     const token = authHeader?.replace('Bearer ', '')
-    
+
     if (!token) {
       return NextResponse.json<ApiResponse>({
         success: false,
@@ -321,7 +329,7 @@ export async function DELETE(
     // Check if schedule exists and belongs to club
     const existingSchedule = await prisma.schedule.findFirst({
       where: {
-        id: params.id,
+        id,
         clubId: payload.clubId
       },
       include: {
@@ -350,7 +358,7 @@ export async function DELETE(
     }
 
     await prisma.schedule.delete({
-      where: { id: params.id }
+      where: { id }
     })
 
     return NextResponse.json<ApiResponse>({

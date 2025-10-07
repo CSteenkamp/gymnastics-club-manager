@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+import { randomUUID } from 'crypto'
 
 const prisma = new PrismaClient()
 
@@ -7,7 +8,7 @@ async function main() {
   console.log('🌱 Starting database seed...')
 
   // Create Ceres Gymnastics Club
-  const club = await prisma.club.upsert({
+  const club = await prisma.clubs.upsert({
     where: { id: 'ceres-gymnastics' },
     update: {},
     create: {
@@ -19,7 +20,8 @@ async function main() {
       settings: {
         currency: 'ZAR',
         timezone: 'Africa/Johannesburg'
-      }
+      },
+      updatedAt: new Date()
     }
   })
 
@@ -38,7 +40,7 @@ async function main() {
   ]
 
   for (const fee of feeStructures) {
-    await prisma.feeStructure.upsert({
+    await prisma.fee_structures.upsert({
       where: {
         clubId_level: {
           clubId: club.id,
@@ -47,10 +49,12 @@ async function main() {
       },
       update: {},
       create: {
+        id: randomUUID(),
         clubId: club.id,
         level: fee.level,
         monthlyFee: fee.monthlyFee,
-        description: fee.description
+        description: fee.description,
+        updatedAt: new Date()
       }
     })
   }
@@ -59,7 +63,7 @@ async function main() {
 
   // Create admin user
   const hashedPassword = await bcrypt.hash('admin123', 12)
-  const admin = await prisma.user.upsert({
+  const admin = await prisma.users.upsert({
     where: {
       clubId_email: {
         clubId: club.id,
@@ -68,13 +72,15 @@ async function main() {
     },
     update: {},
     create: {
+      id: randomUUID(),
       clubId: club.id,
       email: 'admin@ceresgymnastics.co.za',
       firstName: 'Admin',
       lastName: 'User',
       phone: '+27123456789',
       password: hashedPassword,
-      role: 'ADMIN'
+      role: 'ADMIN',
+      updatedAt: new Date()
     }
   })
 
@@ -82,7 +88,7 @@ async function main() {
 
   // Create demo parent user
   const parentPassword = await bcrypt.hash('parent123', 12)
-  const parent = await prisma.user.upsert({
+  const parent = await prisma.users.upsert({
     where: {
       clubId_email: {
         clubId: club.id,
@@ -91,28 +97,32 @@ async function main() {
     },
     update: {},
     create: {
+      id: randomUUID(),
       clubId: club.id,
       email: 'parent@example.com',
       firstName: 'Jane',
       lastName: 'Smith',
       phone: '+27987654321',
       password: parentPassword,
-      role: 'PARENT'
+      role: 'PARENT',
+      updatedAt: new Date()
     }
   })
 
   console.log(`✅ Created demo parent: ${parent.email}`)
 
   // Create demo children
-  const child1 = await prisma.child.create({
+  const child1 = await prisma.children.create({
     data: {
+      id: randomUUID(),
       clubId: club.id,
       firstName: 'Emma',
       lastName: 'Smith',
       dateOfBirth: new Date('2015-03-15'),
       level: 'Level 2',
       status: 'ACTIVE',
-      parents: {
+      updatedAt: new Date(),
+      users: {
         connect: {
           id: parent.id
         }
@@ -120,15 +130,17 @@ async function main() {
     }
   })
 
-  const child2 = await prisma.child.create({
+  const child2 = await prisma.children.create({
     data: {
+      id: randomUUID(),
       clubId: club.id,
       firstName: 'Sophia',
       lastName: 'Smith',
       dateOfBirth: new Date('2013-07-22'),
       level: 'Level 4',
       status: 'ACTIVE',
-      parents: {
+      updatedAt: new Date(),
+      users: {
         connect: {
           id: parent.id
         }
@@ -137,6 +149,31 @@ async function main() {
   })
 
   console.log(`✅ Created demo children: ${child1.firstName}, ${child2.firstName}`)
+
+  // Create demo coach
+  const coachPassword = await bcrypt.hash('coach123', 12)
+  const coach = await prisma.users.upsert({
+    where: {
+      clubId_email: {
+        clubId: club.id,
+        email: 'coach@ceresgymnastics.co.za'
+      }
+    },
+    update: {},
+    create: {
+      id: randomUUID(),
+      clubId: club.id,
+      email: 'coach@ceresgymnastics.co.za',
+      firstName: 'Sarah',
+      lastName: 'Johnson',
+      phone: '+27123456000',
+      password: coachPassword,
+      role: 'COACH',
+      updatedAt: new Date()
+    }
+  })
+
+  console.log(`✅ Created demo coach: ${coach.email}`)
 
   // Create some demo classes
   const classes = [
@@ -151,22 +188,125 @@ async function main() {
   ]
 
   for (const classData of classes) {
-    await prisma.class.create({
+    await prisma.classes.create({
       data: {
+        id: randomUUID(),
         clubId: club.id,
         name: classData.name,
         level: classData.level,
-        description: `Training class for ${classData.level} gymnasts`
+        description: `Training class for ${classData.level} gymnasts`,
+        updatedAt: new Date()
       }
     })
   }
 
   console.log(`✅ Created ${classes.length} classes`)
 
+  // Create demo schedules
+  const schedules = [
+    {
+      name: 'Level 2 Monday Training',
+      level: 'Level 2',
+      dayOfWeek: 'MONDAY',
+      startTime: '16:00',
+      endTime: '17:30',
+      location: 'Main Gym',
+      maxCapacity: 12
+    },
+    {
+      name: 'Level 2 Wednesday Training',
+      level: 'Level 2',
+      dayOfWeek: 'WEDNESDAY',
+      startTime: '16:00',
+      endTime: '17:30',
+      location: 'Main Gym',
+      maxCapacity: 12
+    },
+    {
+      name: 'Level 4 Tuesday Training',
+      level: 'Level 4',
+      dayOfWeek: 'TUESDAY',
+      startTime: '17:00',
+      endTime: '19:00',
+      location: 'Main Gym',
+      maxCapacity: 10
+    },
+    {
+      name: 'Level 4 Thursday Training',
+      level: 'Level 4',
+      dayOfWeek: 'THURSDAY',
+      startTime: '17:00',
+      endTime: '19:00',
+      location: 'Main Gym',
+      maxCapacity: 10
+    }
+  ]
+
+  for (const schedule of schedules) {
+    await prisma.schedules.create({
+      data: {
+        id: randomUUID(),
+        clubId: club.id,
+        name: schedule.name,
+        level: schedule.level,
+        dayOfWeek: schedule.dayOfWeek,
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        location: schedule.location,
+        maxCapacity: schedule.maxCapacity,
+        isActive: true,
+        coachId: coach.id,
+        updatedAt: new Date()
+      }
+    })
+  }
+
+  console.log(`✅ Created ${schedules.length} schedules`)
+
+  // Enroll children in schedules
+  const level2Schedules = await prisma.schedules.findMany({
+    where: { clubId: club.id, level: 'Level 2' }
+  })
+
+  for (const schedule of level2Schedules) {
+    await prisma.enrollments.create({
+      data: {
+        id: randomUUID(),
+        clubId: club.id,
+        childId: child1.id,
+        scheduleId: schedule.id,
+        startDate: new Date(),
+        isActive: true,
+        updatedAt: new Date()
+      }
+    })
+  }
+
+  const level4Schedules = await prisma.schedules.findMany({
+    where: { clubId: club.id, level: 'Level 4' }
+  })
+
+  for (const schedule of level4Schedules) {
+    await prisma.enrollments.create({
+      data: {
+        id: randomUUID(),
+        clubId: club.id,
+        childId: child2.id,
+        scheduleId: schedule.id,
+        startDate: new Date(),
+        isActive: true,
+        updatedAt: new Date()
+      }
+    })
+  }
+
+  console.log(`✅ Enrolled children in schedules`)
+
   console.log('🎉 Database seeded successfully!')
   console.log('\n📝 Login credentials:')
   console.log('Admin: admin@ceresgymnastics.co.za / admin123')
   console.log('Parent: parent@example.com / parent123')
+  console.log('Coach: coach@ceresgymnastics.co.za / coach123')
 }
 
 main()

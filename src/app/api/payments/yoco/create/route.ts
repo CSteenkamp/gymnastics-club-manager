@@ -33,10 +33,10 @@ export async function POST(request: NextRequest) {
         id: validatedData.invoiceId,
         clubId,
         OR: [
-          { parentId: userId },
+          { userId: userId },
           // Admin can create payments for any invoice in their club
           {
-            club: {
+            clubs: {
               users: {
                 some: {
                   id: userId,
@@ -48,8 +48,25 @@ export async function POST(request: NextRequest) {
         ]
       },
       include: {
-        parent: true,
-        child: true
+        users: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        },
+        invoice_items: {
+          include: {
+            children: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true
+              }
+            }
+          }
+        }
       }
     })
 

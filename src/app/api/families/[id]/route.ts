@@ -254,9 +254,9 @@ async function calculateFamilyFinancials(familyId: string, clubId: string) {
       where: {
         clubId,
         status: { in: ['PENDING', 'OVERDUE'] },
-        items: {
+        invoice_items: {
           some: {
-            child: {
+            children: {
               familyId
             }
           }
@@ -275,10 +275,10 @@ async function calculateFamilyFinancials(familyId: string, clubId: string) {
       where: {
         clubId,
         status: 'COMPLETED',
-        invoice: {
-          items: {
+        invoices: {
+          invoice_items: {
             some: {
-              child: {
+              children: {
                 familyId
               }
             }

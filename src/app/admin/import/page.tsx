@@ -65,10 +65,12 @@ export default function ImportPage() {
             <CSVImportTool onImportComplete={handleImportComplete} />
             
             {/* Data Mapping Guide */}
-            <Card>
+            <Card className="bg-white border-2 border-blue-200 rounded-xl shadow-sm hover:shadow-md hover:border-blue-300">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <FileSpreadsheet className="h-5 w-5" />
+                  <div className="p-2 bg-blue-50 rounded-lg">
+                    <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+                  </div>
                   Data Mapping Guide
                 </CardTitle>
                 <CardDescription>
@@ -145,7 +147,7 @@ export default function ImportPage() {
           </TabsContent>
 
           <TabsContent value="payments">
-            <Card>
+            <Card className="bg-white border-2 border-gray-200 rounded-xl shadow-sm">
               <CardHeader>
                 <CardTitle>Payment History Import</CardTitle>
                 <CardDescription>

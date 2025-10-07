@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ParentLayout } from '@/components/layout/ParentLayout'
 
 interface Payment {
   id: string
@@ -221,25 +222,8 @@ export default function PaymentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Payments</h1>
-              <p className="text-gray-600">Manage your payment history and pay outstanding invoices</p>
-            </div>
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              Back to Dashboard
-            </button>
-          </div>
-        </div>
-      </header>
-
+    <ParentLayout title="Payments" description="Manage your payment history and pay outstanding invoices">
+      <div className="space-y-6">
       {/* Navigation Tabs */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -274,8 +258,6 @@ export default function PaymentsPage() {
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
           {activeTab === 'payments' && (
             <div className="bg-white shadow rounded-lg">
               <div className="px-6 py-4 border-b border-gray-200">
@@ -450,8 +432,7 @@ export default function PaymentsPage() {
               </div>
             </div>
           )}
-        </div>
-      </main>
-    </div>
+      </div>
+    </ParentLayout>
   )
 }

@@ -2,9 +2,20 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
+import { ParentLayout } from '@/components/layout/ParentLayout'
 import PaymentConfirmation from '@/components/PaymentConfirmation'
 import { ParentCreditAccount } from '@/components/credits/ParentCreditAccount'
+import ClassCalendar from '@/components/ClassCalendar'
+import {
+  CreditCard,
+  FileText,
+  Users,
+  AlertCircle,
+  Clock,
+  DollarSign,
+  ChevronRight,
+  CheckCircle
+} from 'lucide-react'
 
 interface User {
   id: string
@@ -28,6 +39,7 @@ interface User {
 interface Invoice {
   id: string
   invoiceNumber: string
+  paymentReference?: string
   month: number
   year: number
   total: number
@@ -39,9 +51,29 @@ interface Invoice {
   }
 }
 
+interface Schedule {
+  id: string
+  name: string
+  level: string
+  dayOfWeek: string
+  startTime: string
+  endTime: string
+  maxCapacity: number
+  currentEnrollment: number
+  venue: string
+  coach?: {
+    firstName: string
+    lastName: string
+  }
+  isEnrolled: boolean
+  enrolledChildren?: string[]
+  isExtraLesson?: boolean
+}
+
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
   const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [schedules, setSchedules] = useState<Schedule[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [paymentLoading, setPaymentLoading] = useState<string | null>(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -50,19 +82,17 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadDashboardData()
-    
+
     // Handle payment result from URL params
     const urlParams = new URLSearchParams(window.location.search)
     const paymentResult = urlParams.get('payment')
-    
+
     if (paymentResult === 'success') {
-      // Show success message and reload data
       setPaymentModalType('success')
       setShowPaymentModal(true)
       window.history.replaceState({}, '', '/dashboard')
       loadDashboardData()
     } else if (paymentResult === 'cancelled') {
-      // Show cancellation message
       setPaymentModalType('cancelled')
       setShowPaymentModal(true)
       window.history.replaceState({}, '', '/dashboard')
@@ -73,12 +103,9 @@ export default function DashboardPage() {
     try {
       const token = localStorage.getItem('token')
       if (!token) {
-        console.log('📢 No token found, redirecting to login')
         router.push('/login')
         return
       }
-
-      console.log('📊 Loading dashboard data...')
 
       // Load user data
       const userResponse = await fetch('/api/auth/me', {
@@ -87,14 +114,10 @@ export default function DashboardPage() {
         }
       })
 
-      console.log('👤 User response status:', userResponse.status)
-
       if (userResponse.ok) {
         const userData = await userResponse.json()
-        console.log('👤 User data loaded:', userData.data?.firstName)
         setUser(userData.data)
       } else {
-        console.log('❌ User auth failed, clearing token and redirecting')
         localStorage.removeItem('token')
         localStorage.removeItem('user')
         router.push('/login')
@@ -108,32 +131,65 @@ export default function DashboardPage() {
         }
       })
 
-      console.log('📄 Invoices response status:', invoicesResponse.status)
-
       if (invoicesResponse.ok) {
         const invoicesData = await invoicesResponse.json()
-        console.log('📄 Invoices loaded:', invoicesData.data?.length)
-        setInvoices(invoicesData.data.slice(0, 5)) // Show last 5 invoices
-      } else {
-        console.log('⚠️ Failed to load invoices')
+        setInvoices(invoicesData.data) // Show all invoices
+      }
+
+      // Load schedules for calendar
+      const schedulesResponse = await fetch('/api/schedules/calendar', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (schedulesResponse.ok) {
+        const schedulesData = await schedulesResponse.json()
+        setSchedules(schedulesData.data || [])
       }
     } catch (error) {
-      console.error('❌ Error loading dashboard:', error)
+      console.error('Error loading dashboard:', error)
     } finally {
       setIsLoading(false)
     }
   }
 
+  const handleBookExtraLesson = async (scheduleId: string, childId: string) => {
+    try {
+      const token = localStorage.getItem('token')
+
+      const response = await fetch('/api/schedules/book-extra-lesson', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ scheduleId, childId })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        alert(data.message || 'Extra lesson booked successfully!')
+        // Reload schedules to update calendar
+        loadDashboardData()
+      } else {
+        alert(data.error || 'Failed to book extra lesson')
+      }
+    } catch (error) {
+      console.error('Error booking extra lesson:', error)
+      alert('An error occurred while booking the lesson')
+    }
+  }
+
   const handleLogout = async () => {
     try {
-      // Call logout API to clear cookie
       await fetch('/api/auth/logout', {
         method: 'POST'
       })
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
-      // Clear localStorage and redirect
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       router.push('/login')
@@ -153,20 +209,11 @@ export default function DashboardPage() {
     return months[month - 1]
   }
 
-  const getStatusBadge = (status: string) => {
-    const colors = {
-      PENDING: 'bg-yellow-100 text-yellow-800',
-      PAID: 'bg-green-100 text-green-800',
-      OVERDUE: 'bg-red-100 text-red-800'
-    }
-    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800'
-  }
-
   const handlePayFastPayment = async (invoice: Invoice) => {
     try {
       setPaymentLoading(invoice.id)
       const token = localStorage.getItem('token')
-      
+
       if (!token) {
         router.push('/login')
         return
@@ -191,7 +238,6 @@ export default function DashboardPage() {
       if (response.ok) {
         const data = await response.json()
         if (data.success && data.data.paymentUrl) {
-          // Redirect to PayFast
           window.location.href = data.data.paymentUrl
         } else {
           alert('Failed to create payment: ' + (data.error || 'Unknown error'))
@@ -210,8 +256,11 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <p className="text-gray-600">Loading your dashboard...</p>
+        </div>
       </div>
     )
   }
@@ -224,216 +273,224 @@ export default function DashboardPage() {
     .filter(inv => inv.status === 'PENDING' || inv.status === 'OVERDUE')
     .reduce((sum, inv) => sum + inv.total, 0)
 
+  const activeChildren = user.children.filter(child => child.status === 'ACTIVE')
+  const overdueInvoices = invoices.filter(inv => inv.status === 'OVERDUE')
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Welcome, {user.firstName}!
-              </h1>
-              <p className="text-gray-600">{user.club.name}</p>
+    <ParentLayout title={`Welcome back, ${user.firstName}!`} description={user.club.name}>
+      <div className="space-y-6">
+        {/* Alert Banner for Overdue */}
+        {overdueInvoices.length > 0 && (
+          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg shadow-sm">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-red-500 mr-3" />
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-red-800">
+                  You have {overdueInvoices.length} overdue {overdueInvoices.length === 1 ? 'invoice' : 'invoices'}
+                </h3>
+                <p className="text-sm text-red-700 mt-1">
+                  Please make payment as soon as possible to avoid service interruption.
+                </p>
+              </div>
+              <button
+                onClick={() => router.push('/dashboard/invoices')}
+                className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                View Invoices
+              </button>
             </div>
-            <Button
-              onClick={handleLogout}
-              variant="outline"
-            >
-              Logout
-            </Button>
+          </div>
+        )}
+
+        {/* Class Calendar - First Thing Parents See */}
+        <div className="mb-6">
+          <ClassCalendar
+            schedules={schedules}
+            children={user.children.map(c => ({
+              id: c.id,
+              firstName: c.firstName,
+              lastName: c.lastName
+            }))}
+            onBookExtraLesson={handleBookExtraLesson}
+          />
+        </div>
+
+        {/* Invoice Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
+          <div className="bg-white p-3 rounded-lg shadow border-2 border-blue-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600">Total Invoices</p>
+                <p className="text-2xl font-bold text-gray-900 mt-0.5">{invoices.length}</p>
+              </div>
+              <FileText className="h-6 w-6 text-blue-600" />
+            </div>
+          </div>
+          <div className="bg-white p-3 rounded-lg shadow border-2 border-yellow-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600">Pending</p>
+                <p className="text-2xl font-bold text-gray-900 mt-0.5">
+                  {invoices.filter(i => i.status === 'PENDING').length}
+                </p>
+              </div>
+              <Clock className="h-6 w-6 text-yellow-600" />
+            </div>
+          </div>
+          <div className="bg-white p-3 rounded-lg shadow border-2 border-green-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600">Paid</p>
+                <p className="text-2xl font-bold text-gray-900 mt-0.5">
+                  {invoices.filter(i => i.status === 'PAID').length}
+                </p>
+              </div>
+              <CheckCircle className="h-6 w-6 text-green-600" />
+            </div>
+          </div>
+          <div className="bg-white p-3 rounded-lg shadow border-2 border-red-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600">Outstanding</p>
+                <p className="text-xl font-bold text-gray-900 mt-0.5">{formatCurrency(outstandingBalance)}</p>
+              </div>
+              <DollarSign className="h-6 w-6 text-red-600" />
+            </div>
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-medium text-gray-900">Active Children</h3>
-              <p className="text-3xl font-bold text-blue-600">
-                {user.children.filter(child => child.status === 'ACTIVE').length}
-              </p>
+        {/* All Invoices Section */}
+        {invoices.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+            <div className="px-6 py-4 bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <FileText className="h-5 w-5 text-purple-600" />
+                All Invoices
+              </h2>
+              <button
+                onClick={() => router.push('/invoices')}
+                className="text-sm text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+              >
+                View Details <ChevronRight className="h-4 w-4" />
+              </button>
             </div>
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-medium text-gray-900">Outstanding Balance</h3>
-              <p className="text-3xl font-bold text-red-600">
-                {formatCurrency(outstandingBalance)}
-              </p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-medium text-gray-900">Total Invoices</h3>
-              <p className="text-3xl font-bold text-gray-600">
-                {invoices.length}
-              </p>
+            <div className="divide-y divide-gray-100">
+              {invoices.map((invoice) => (
+                <div key={invoice.id} className="p-6 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="font-semibold text-gray-900">{invoice.invoiceNumber}</h3>
+                        <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                          invoice.status === 'PAID'
+                            ? 'bg-green-100 text-green-700'
+                            : invoice.status === 'OVERDUE'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {invoice.status}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        {getMonthName(invoice.month)} {invoice.year}
+                        {invoice.child && (
+                          <span className="ml-2">• {invoice.child.firstName} {invoice.child.lastName}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="text-right flex items-center gap-4">
+                      <div>
+                        <p className="text-xl font-bold text-gray-900">
+                          {formatCurrency(invoice.total)}
+                        </p>
+                      </div>
+                      {(invoice.status === 'PENDING' || invoice.status === 'OVERDUE') && (
+                        <button
+                          onClick={() => handlePayFastPayment(invoice)}
+                          disabled={paymentLoading === invoice.id}
+                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {paymentLoading === invoice.id ? (
+                            <>
+                              <Clock className="h-4 w-4 animate-spin" />
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              <CreditCard className="h-4 w-4" />
+                              Pay Now
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
+        )}
 
-          {/* Quick Actions */}
-          <div className="bg-white shadow rounded-lg mb-8">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Quick Actions</h2>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <button
-                  onClick={() => router.push('/documents')}
-                  className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                >
-                  <div className="flex items-center">
-                    <span className="text-2xl mr-3">📄</span>
-                    <div>
-                      <h3 className="font-medium text-gray-900">Documents & Forms</h3>
-                      <p className="text-sm text-gray-600">View and sign required documents</p>
+        {/* Main Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - 2/3 width */}
+          <div className="lg:col-span-2 space-y-6">
+          </div>
+
+          {/* Right Column - 1/3 width */}
+          <div className="space-y-6">
+            {/* Children Widget */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Users className="h-5 w-5 text-blue-600" />
+                  Your Children
+                </h2>
+              </div>
+              <div className="p-6 space-y-4">
+                {user.children.length > 0 ? (
+                  user.children.map((child) => (
+                    <div
+                      key={child.id}
+                      className="flex items-center gap-3 p-4 bg-gradient-to-r from-gray-50 to-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow"
+                    >
+                      <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                        {child.firstName[0]}{child.lastName[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 truncate">
+                          {child.firstName} {child.lastName}
+                        </h3>
+                        <p className="text-sm text-gray-600">Level: {child.level}</p>
+                      </div>
+                      <div>
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          child.status === 'ACTIVE'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {child.status}
+                        </span>
+                      </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-600">No children registered yet</p>
+                    <button
+                      onClick={() => router.push('/dashboard/children')}
+                      className="mt-4 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+                    >
+                      View Children
+                    </button>
                   </div>
-                </button>
-                <button
-                  onClick={() => router.push('/payments')}
-                  className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                >
-                  <div className="flex items-center">
-                    <span className="text-2xl mr-3">💳</span>
-                    <div>
-                      <h3 className="font-medium text-gray-900">Payment History</h3>
-                      <p className="text-sm text-gray-600">View all payments and invoices</p>
-                    </div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => router.push('/credits')}
-                  className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                >
-                  <div className="flex items-center">
-                    <span className="text-2xl mr-3">💰</span>
-                    <div>
-                      <h3 className="font-medium text-gray-900">Credit Account</h3>
-                      <p className="text-sm text-gray-600">View your credit balance and history</p>
-                    </div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => alert('Coming soon!')}
-                  className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                >
-                  <div className="flex items-center">
-                    <span className="text-2xl mr-3">📅</span>
-                    <div>
-                      <h3 className="font-medium text-gray-900">Class Schedule</h3>
-                      <p className="text-sm text-gray-600">View your child's classes</p>
-                    </div>
-                  </div>
-                </button>
+                )}
               </div>
             </div>
           </div>
-
-          {/* Children List */}
-          <div className="bg-white shadow rounded-lg mb-8">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Your Children</h2>
-            </div>
-            <div className="divide-y divide-gray-200">
-              {user.children.map((child) => (
-                <div key={child.id} className="px-6 py-4 flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900">
-                      {child.firstName} {child.lastName}
-                    </h3>
-                    <p className="text-gray-600">Level: {child.level}</p>
-                  </div>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    child.status === 'ACTIVE' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {child.status}
-                  </span>
-                </div>
-              ))}
-              {user.children.length === 0 && (
-                <div className="px-6 py-8 text-center text-gray-500">
-                  No children registered yet.
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Recent Invoices */}
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-gray-900">Recent Invoices</h2>
-              <button
-                onClick={() => router.push('/payments')}
-                className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-              >
-                View All Payments →
-              </button>
-            </div>
-            <div className="divide-y divide-gray-200">
-              {invoices.map((invoice) => (
-                <div key={invoice.id} className="px-6 py-4 flex justify-between items-center">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-medium text-gray-900">
-                      {invoice.invoiceNumber}
-                    </h3>
-                    <p className="text-gray-600">
-                      {getMonthName(invoice.month)} {invoice.year}
-                      {invoice.child && (
-                        <span className="ml-2 text-sm">
-                          - {invoice.child.firstName} {invoice.child.lastName}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <div className="text-right flex items-center space-x-4">
-                    <div>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {formatCurrency(invoice.total)}
-                      </p>
-                      <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(invoice.status)}`}>
-                        {invoice.status}
-                      </span>
-                    </div>
-                    {(invoice.status === 'PENDING' || invoice.status === 'OVERDUE') && (
-                      <button
-                        onClick={() => handlePayFastPayment(invoice)}
-                        disabled={paymentLoading === invoice.id}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          paymentLoading === invoice.id
-                            ? 'bg-gray-400 text-white cursor-not-allowed'
-                            : 'bg-green-600 hover:bg-green-700 text-white'
-                        }`}
-                      >
-                        {paymentLoading === invoice.id ? (
-                          <div className="flex items-center">
-                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Processing...
-                          </div>
-                        ) : (
-                          <>
-                            💳 Pay Now
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {invoices.length === 0 && (
-                <div className="px-6 py-8 text-center text-gray-500">
-                  No invoices found.
-                </div>
-              )}
-            </div>
-          </div>
         </div>
-      </main>
+      </div>
 
       {/* Payment Confirmation Modal */}
       <PaymentConfirmation
@@ -441,6 +498,6 @@ export default function DashboardPage() {
         type={paymentModalType}
         onClose={() => setShowPaymentModal(false)}
       />
-    </div>
+    </ParentLayout>
   )
 }

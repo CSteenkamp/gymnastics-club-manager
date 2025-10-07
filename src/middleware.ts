@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken } from '@/lib/auth'
+import { verifyTokenEdge, type JWTPayload } from '@/lib/auth-edge'
 
 // Define protected routes
 const protectedRoutes = [
@@ -16,7 +16,10 @@ const protectedRoutes = [
   '/api/attendance',
   '/api/notifications',
   '/api/fees',
-  '/api/credits'
+  '/api/fee-types',
+  '/api/credits',
+  '/api/reports',
+  '/api/import'
 ]
 
 // Define public routes that should never be protected
@@ -39,7 +42,9 @@ const adminRoutes = [
   '/api/notifications/test',
   '/api/reports',
   '/api/fees',
-  '/api/credits'
+  '/api/fee-types',
+  '/api/credits',
+  '/api/import'
 ]
 
 // Define super admin-only routes
@@ -48,36 +53,55 @@ const superAdminRoutes = [
   '/api/clubs'
 ]
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  
-  // TEMPORARY: Allow all access in development for testing
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`🔧 [DEV] Allowing access to ${pathname}`)
-    return NextResponse.next()
+  const hostname = request.headers.get('host') || ''
+
+  // Extract subdomain for multi-tenant routing
+  const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || 'localhost:3000'
+  let clubSlug: string | null = null
+
+  if (hostname !== mainDomain && !hostname.startsWith('www.')) {
+    // Extract subdomain
+    const parts = hostname.split('.')
+
+    // For production: club.yourdomain.com
+    if (!hostname.includes('localhost') && parts.length > 2) {
+      clubSlug = parts[0]
+    }
   }
-  
+
+  // Add club slug to headers for tenant context
+  const requestHeaders = new Headers(request.headers)
+  if (clubSlug) {
+    requestHeaders.set('x-club-slug', clubSlug)
+  }
+
   // Check if this is a public route that should never be protected
-  const isPublicRoute = publicRoutes.some(route => 
+  const isPublicRoute = publicRoutes.some(route =>
     pathname.startsWith(route)
   )
-  
+
   if (isPublicRoute) {
-    return NextResponse.next()
+    return NextResponse.next({
+      request: { headers: requestHeaders }
+    })
   }
-  
+
   // Check if this is a protected route
-  const isProtectedRoute = protectedRoutes.some(route => 
+  const isProtectedRoute = protectedRoutes.some(route =>
     pathname.startsWith(route)
   )
-  
+
   if (!isProtectedRoute) {
-    return NextResponse.next()
+    return NextResponse.next({
+      request: { headers: requestHeaders }
+    })
   }
 
   // Get token from cookies or authorization header
   let token = request.cookies.get('token')?.value
-  
+
   // Fallback: authorization header
   if (!token) {
     const authHeader = request.headers.get('authorization')
@@ -85,38 +109,30 @@ export function middleware(request: NextRequest) {
       token = authHeader.replace('Bearer ', '')
     }
   }
-  
+
   if (!token) {
     // Redirect to login for protected routes
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    
+
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('redirectTo', pathname)
     return NextResponse.redirect(loginUrl)
   }
 
-  // Verify token
-  const payload = verifyToken(token)
-  
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`🔐 [${pathname}] Token verification:`, payload ? 'SUCCESS' : 'FAILED')
-  }
-  
+  // Verify token using edge-compatible jose library
+  const payload = await verifyTokenEdge(token)
+
   if (!payload) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`❌ [${pathname}] Invalid token - redirecting to login`)
-    }
-    
     // Clear invalid token cookie
-    const response = pathname.startsWith('/api/') 
-      ? NextResponse.json({ 
+    const response = pathname.startsWith('/api/')
+      ? NextResponse.json({
           success: false,
-          error: 'Invalid token' 
+          error: 'Invalid token'
         }, { status: 401 })
       : NextResponse.redirect(new URL('/login', request.url))
-    
+
     // Clear the invalid token cookie
     response.cookies.set('token', '', {
       httpOnly: true,
@@ -124,53 +140,48 @@ export function middleware(request: NextRequest) {
       sameSite: 'lax',
       maxAge: 0
     })
-    
+
     return response
-  }
-  
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`✅ [${pathname}] User authenticated:`, payload.userId, payload.role)
   }
 
   // Check super admin access for super admin routes
-  const isSuperAdminRoute = superAdminRoutes.some(route => 
+  const isSuperAdminRoute = superAdminRoutes.some(route =>
     pathname.startsWith(route)
   )
-  
+
   if (isSuperAdminRoute && payload.role !== 'SUPER_ADMIN') {
     if (pathname.startsWith('/api/')) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         success: false,
-        error: 'Super admin access required' 
+        error: 'Super admin access required'
       }, { status: 403 })
     }
-    
+
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   // Check admin access for admin routes
-  const isAdminRoute = adminRoutes.some(route => 
+  const isAdminRoute = adminRoutes.some(route =>
     pathname.startsWith(route)
   )
-  
+
   if (isAdminRoute && !['ADMIN', 'FINANCE_ADMIN', 'COACH'].includes(payload.role)) {
     if (pathname.startsWith('/api/')) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         success: false,
-        error: 'Insufficient permissions' 
+        error: 'Insufficient permissions'
       }, { status: 403 })
     }
-    
+
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   // Add user info to headers for API routes
   if (pathname.startsWith('/api/')) {
-    const requestHeaders = new Headers(request.headers)
     requestHeaders.set('x-user-id', payload.userId)
     requestHeaders.set('x-club-id', payload.clubId)
     requestHeaders.set('x-user-role', payload.role)
-    
+
     return NextResponse.next({
       request: {
         headers: requestHeaders,
@@ -178,7 +189,9 @@ export function middleware(request: NextRequest) {
     })
   }
 
-  return NextResponse.next()
+  return NextResponse.next({
+    request: { headers: requestHeaders }
+  })
 }
 
 export const config = {

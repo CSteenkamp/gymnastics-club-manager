@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ParentLayout } from '@/components/layout/ParentLayout'
 
 interface Document {
   id: string
@@ -224,30 +225,8 @@ export default function DocumentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                📄 Documents & Forms
-              </h1>
-              <p className="text-gray-600">View and sign required documents</p>
-            </div>
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              ← Back to Dashboard
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
+    <ParentLayout title="📄 Documents & Forms" description="View and sign required documents">
+      <div className="space-y-6">
           {/* Filters */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
             <div className="px-6 py-4">
@@ -389,8 +368,7 @@ export default function DocumentsPage() {
               )}
             </div>
           </div>
-        </div>
-      </main>
-    </div>
+      </div>
+    </ParentLayout>
   )
 }

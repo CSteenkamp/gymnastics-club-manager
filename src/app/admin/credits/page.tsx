@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { AdminLayout } from '@/components/layout/AdminLayout'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CreditManager } from '@/components/credits/CreditManager'
 import { OverpaymentManager } from '@/components/credits/OverpaymentManager'
@@ -17,13 +18,8 @@ export default function CreditsPage() {
   const [activeTab, setActiveTab] = useState('overview')
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Credit Management</h1>
-        <p className="text-gray-600">
-          Manage prepayments, credit balances, and overpayments
-        </p>
-      </div>
+    <AdminLayout title="Credit Management" description="Manage prepayments, credit balances, and overpayments">
+      <div className="space-y-6">
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
@@ -193,5 +189,6 @@ export default function CreditsPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </AdminLayout>
   )
 }

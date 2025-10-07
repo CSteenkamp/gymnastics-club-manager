@@ -38,13 +38,13 @@ export async function GET(
       }, { status: 403 })
     }
 
-    const feeAdjustment = await prisma.feeAdjustment.findFirst({
+    const feeAdjustment = await prisma.fee_adjustments.findFirst({
       where: {
         id: params.id,
         clubId
       },
       include: {
-        child: {
+        children: {
           select: {
             id: true,
             firstName: true,
@@ -105,13 +105,13 @@ export async function PUT(
     const validatedData = updateFeeAdjustmentSchema.parse(body)
 
     // Get existing adjustment
-    const existingAdjustment = await prisma.feeAdjustment.findFirst({
+    const existingAdjustment = await prisma.fee_adjustments.findFirst({
       where: {
         id: params.id,
         clubId
       },
       include: {
-        child: true
+        children: true
       }
     })
 
@@ -149,11 +149,11 @@ export async function PUT(
     }
 
     // Update fee adjustment
-    const updatedAdjustment = await prisma.feeAdjustment.update({
+    const updatedAdjustment = await prisma.fee_adjustments.update({
       where: { id: params.id },
       data: validatedData,
       include: {
-        child: {
+        children: {
           select: {
             id: true,
             firstName: true,
@@ -249,13 +249,13 @@ export async function DELETE(
     }
 
     // Get existing adjustment
-    const existingAdjustment = await prisma.feeAdjustment.findFirst({
+    const existingAdjustment = await prisma.fee_adjustments.findFirst({
       where: {
         id: params.id,
         clubId
       },
       include: {
-        child: true
+        children: true
       }
     })
 
@@ -269,7 +269,7 @@ export async function DELETE(
     // For permanent adjustments, revert the child's monthly fee if possible
     if (existingAdjustment.adjustmentType === 'PERMANENT') {
       // Find the previous fee (either another permanent adjustment or the original fee)
-      const previousAdjustment = await prisma.feeAdjustment.findFirst({
+      const previousAdjustment = await prisma.fee_adjustments.findFirst({
         where: {
           childId: existingAdjustment.childId,
           clubId,
@@ -304,7 +304,7 @@ export async function DELETE(
     }
 
     // Delete the adjustment
-    await prisma.feeAdjustment.delete({
+    await prisma.fee_adjustments.delete({
       where: { id: params.id }
     })
 

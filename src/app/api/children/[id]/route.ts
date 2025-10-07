@@ -31,7 +31,7 @@ export async function GET(request: NextRequest, { params }: Context) {
 
     // Parents can only access their own children
     if (userRole === 'PARENT') {
-      whereClause.parents = {
+      whereClause.users = {
         some: {
           id: userId
         }
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest, { params }: Context) {
     const child = await prisma.child.findFirst({
       where: whereClause,
       include: {
-        parents: {
+        users: {
           select: {
             id: true,
             firstName: true,
@@ -104,7 +104,7 @@ export async function PUT(request: NextRequest, { params }: Context) {
 
     // Parents can only update their own children (limited fields)
     if (userRole === 'PARENT') {
-      whereClause.parents = {
+      whereClause.users = {
         some: {
           id: userId
         }
@@ -139,7 +139,7 @@ export async function PUT(request: NextRequest, { params }: Context) {
         notes
       },
       include: {
-        parents: {
+        users: {
           select: {
             id: true,
             firstName: true,

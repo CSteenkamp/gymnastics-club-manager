@@ -22,7 +22,7 @@ export async function generateMonthlyInvoice(data: InvoiceData) {
   const { clubId, userId, month, year, dueDate } = data
 
   // Check if invoice already exists for this month/year
-  const existingInvoice = await prisma.invoice.findFirst({
+  const existingInvoice = await prisma.invoices.findFirst({
     where: {
       clubId,
       userId,
@@ -36,7 +36,7 @@ export async function generateMonthlyInvoice(data: InvoiceData) {
   }
 
   // Get user's children
-  const children = await prisma.child.findMany({
+  const children = await prisma.children.findMany({
     where: {
       clubId,
       parents: {
@@ -53,7 +53,7 @@ export async function generateMonthlyInvoice(data: InvoiceData) {
   }
 
   // Get fee structures
-  const feeStructures = await prisma.feeStructure.findMany({
+  const feeStructures = await prisma.fee_structures.findMany({
     where: {
       clubId,
       isActive: true
@@ -86,15 +86,17 @@ export async function generateMonthlyInvoice(data: InvoiceData) {
     throw new Error('No fees to invoice for this period')
   }
 
-  // Generate invoice number
+  // Generate invoice number and payment reference
   const invoiceNumber = generateInvoiceNumber(clubId, year, month)
+  const paymentReference = generatePaymentReference(userId, year, month)
 
   // Create invoice
-  const invoice = await prisma.invoice.create({
+  const invoice = await prisma.invoices.create({
     data: {
       clubId,
       userId,
       invoiceNumber,
+      paymentReference,
       month,
       year,
       subtotal: new Decimal(subtotal),
@@ -150,7 +152,7 @@ export async function generateMonthlyInvoice(data: InvoiceData) {
 }
 
 export async function applyDiscount(invoiceId: string, discountAmount: number, description: string) {
-  const invoice = await prisma.invoice.findUnique({
+  const invoice = await prisma.invoices.findUnique({
     where: { id: invoiceId }
   })
 
@@ -170,7 +172,7 @@ export async function applyDiscount(invoiceId: string, discountAmount: number, d
   }
 
   // Update invoice
-  const updatedInvoice = await prisma.invoice.update({
+  const updatedInvoice = await prisma.invoices.update({
     where: { id: invoiceId },
     data: {
       discount,
@@ -199,7 +201,7 @@ export async function applyDiscount(invoiceId: string, discountAmount: number, d
 }
 
 export async function addInvoiceItem(invoiceId: string, item: InvoiceItem) {
-  const invoice = await prisma.invoice.findUnique({
+  const invoice = await prisma.invoices.findUnique({
     where: { id: invoiceId }
   })
 
@@ -212,7 +214,7 @@ export async function addInvoiceItem(invoiceId: string, item: InvoiceItem) {
   }
 
   // Add item
-  await prisma.invoiceItem.create({
+  await prisma.invoice_items.create({
     data: {
       invoiceId,
       childId: item.childId,
@@ -224,14 +226,14 @@ export async function addInvoiceItem(invoiceId: string, item: InvoiceItem) {
   })
 
   // Recalculate totals
-  const items = await prisma.invoiceItem.findMany({
+  const items = await prisma.invoice_items.findMany({
     where: { invoiceId }
   })
 
   const subtotal = items.reduce((sum, item) => sum + (Number(item.amount) * item.quantity), 0)
   const total = subtotal - Number(invoice.discount)
 
-  const updatedInvoice = await prisma.invoice.update({
+  const updatedInvoice = await prisma.invoices.update({
     where: { id: invoiceId },
     data: {
       subtotal: new Decimal(subtotal),
@@ -252,7 +254,7 @@ export async function addInvoiceItem(invoiceId: string, item: InvoiceItem) {
 }
 
 export async function markInvoiceAsPaid(invoiceId: string, paymentId?: string) {
-  const updatedInvoice = await prisma.invoice.update({
+  const updatedInvoice = await prisma.invoices.update({
     where: { id: invoiceId },
     data: {
       status: 'PAID',
@@ -323,7 +325,7 @@ async function calculateEffectiveMonthlyFee(
 ): Promise<EffectiveFee> {
   try {
     // Check for active fee adjustments for this specific month/year
-    const activeAdjustments = await prisma.feeAdjustment.findMany({
+    const activeAdjustments = await prisma.fee_adjustments.findMany({
       where: {
         childId,
         clubId,
@@ -406,7 +408,7 @@ export async function getCurrentEffectiveMonthlyFee(childId: string, clubId: str
 
   try {
     // Get child's base fee and level default
-    const child = await prisma.child.findUnique({
+    const child = await prisma.children.findUnique({
       where: { id: childId },
       include: {
         club: {
@@ -426,11 +428,11 @@ export async function getCurrentEffectiveMonthlyFee(childId: string, clubId: str
     const levelDefault = child.club.feeStructures.find(fs => fs.level === child.level)?.monthlyFee
 
     return calculateEffectiveMonthlyFee(
-      childId, 
-      clubId, 
-      currentMonth, 
-      currentYear, 
-      child.monthlyFee, 
+      childId,
+      clubId,
+      currentMonth,
+      currentYear,
+      child.monthlyFee,
       levelDefault
     )
   } catch (error) {
@@ -438,4 +440,15 @@ export async function getCurrentEffectiveMonthlyFee(childId: string, clubId: str
     // Fallback
     return { amount: 0 }
   }
+}
+
+// Generate unique payment reference for EFT payments
+function generatePaymentReference(userId: string, year: number, month: number): string {
+  // Extract last 6 characters of userId (more readable than full UUID)
+  const userCode = userId.substring(userId.length - 6).toUpperCase()
+
+  // Format: USERCODE-YYYYMM (e.g., A1B2C3-202501)
+  const reference = `${userCode}-${year}${month.toString().padStart(2, '0')}`
+
+  return reference
 }

@@ -2,6 +2,21 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
+import { DynamicHeader } from '@/components/branding/DynamicHeader'
+import { useBranding } from '@/contexts/BrandingContext'
+import {
+  LayoutDashboard,
+  Users,
+  CreditCard,
+  Calendar,
+  BarChart3,
+  Settings,
+  LogOut,
+  Menu,
+  X,
+  FileText,
+  CalendarDays
+} from 'lucide-react'
 
 interface User {
   id: string
@@ -17,16 +32,18 @@ interface AdminLayoutProps {
   description?: string
 }
 
-export function AdminLayout({ children, title = "Admin Dashboard", description }: AdminLayoutProps) {
+export function AdminLayout({ children, title = "Dashboard", description }: AdminLayoutProps) {
   const [user, setUser] = useState<User | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [collapseTimeout, setCollapseTimeout] = useState<NodeJS.Timeout | null>(null)
   const router = useRouter()
   const pathname = usePathname()
+  const { branding } = useBranding()
 
   useEffect(() => {
-    // Check if user is logged in and has admin role
     const token = localStorage.getItem('token')
     const userData = localStorage.getItem('user')
-    
+
     if (!token || !userData) {
       router.push('/login')
       return
@@ -47,6 +64,33 @@ export function AdminLayout({ children, title = "Admin Dashboard", description }
     router.push('/login')
   }
 
+  const handleMouseEnter = () => {
+    // Clear any existing timeout
+    if (collapseTimeout) {
+      clearTimeout(collapseTimeout)
+      setCollapseTimeout(null)
+    }
+    // Open sidebar immediately
+    setSidebarOpen(true)
+  }
+
+  const handleMouseLeave = () => {
+    // Set timeout to collapse after 2 seconds
+    const timeout = setTimeout(() => {
+      setSidebarOpen(false)
+    }, 2000)
+    setCollapseTimeout(timeout)
+  }
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (collapseTimeout) {
+        clearTimeout(collapseTimeout)
+      }
+    }
+  }, [collapseTimeout])
+
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -55,72 +99,122 @@ export function AdminLayout({ children, title = "Admin Dashboard", description }
     )
   }
 
+  const navigation = [
+    { id: 'overview', name: 'Overview', icon: LayoutDashboard, path: '/admin' },
+    { id: 'members', name: 'Members', icon: Users, path: '/admin/members' },
+    { id: 'invoices', name: 'Invoices & Fees', icon: FileText, path: '/admin/invoices' },
+    { id: 'documents', name: 'Documents', icon: FileText, path: '/admin/documents' },
+    { id: 'classes', name: 'Classes', icon: Calendar, path: '/admin/classes' },
+    { id: 'events', name: 'Events', icon: CalendarDays, path: '/admin/events' },
+    { id: 'reports', name: 'Reports', icon: BarChart3, path: '/admin/reports' },
+    { id: 'settings', name: 'Settings', icon: Settings, path: '/admin/settings' }
+  ]
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                {title}
-              </h1>
-              {description && (
-                <p className="text-gray-600">{description}</p>
-              )}
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-500">
-                Ceres Gymnastics Club
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      {/* Sidebar */}
+      <aside
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-white border-r border-gray-200 shadow-sm transition-all duration-300 flex flex-col`}
+      >
+        {/* Sidebar Header */}
+        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
+          {sidebarOpen ? (
+            branding?.logo ? (
+              <img src={branding.logo} alt={branding.name} className="h-10 object-contain" />
+            ) : (
+              <div className="text-gray-900 font-bold text-lg">{branding?.name || 'Gym Manager'}</div>
+            )
+          ) : (
+            branding?.logo ? (
+              <img src={branding.logo} alt={branding.name} className="h-8 w-8 object-contain" />
+            ) : (
+              <div className="p-2 text-gray-600">
+                <Menu className="h-5 w-5" />
+              </div>
+            )
+          )}
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto py-4">
+          {navigation.map((item) => {
+            const isActive = pathname === item.path ||
+              (item.id === 'members' && pathname?.includes('/admin/members')) ||
+              (item.id === 'fees' && pathname?.includes('/admin/fees')) ||
+              (item.id === 'invoices' && pathname?.includes('/admin/invoices')) ||
+              (item.id === 'documents' && pathname?.includes('/admin/documents')) ||
+              (item.id === 'classes' && pathname?.includes('/admin/classes')) ||
+              (item.id === 'events' && pathname?.includes('/admin/events')) ||
+              (item.id === 'reports' && pathname?.includes('/admin/reports')) ||
+              (item.id === 'settings' && pathname?.includes('/admin/settings'))
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => router.push(item.path)}
+                style={isActive ? {
+                  backgroundColor: branding?.colors?.primary ? `${branding.colors.primary}15` : '#f3e8ff',
+                  color: branding?.colors?.primary || '#7c3aed',
+                  borderRightColor: branding?.colors?.primary || '#7c3aed'
+                } : {}}
+                className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all ${
+                  isActive
+                    ? 'border-r-4'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                {sidebarOpen && <span>{item.name}</span>}
+              </button>
+            )
+          })}
+        </nav>
+
+        {/* User Section */}
+        <div className="border-t border-gray-200 p-4">
+          {sidebarOpen ? (
+            <div className="space-y-3">
+              <div className="text-sm">
+                <p className="font-medium text-gray-900">{user.firstName} {user.lastName}</p>
+                <p className="text-gray-500 text-xs">{user.role}</p>
               </div>
               <button
                 onClick={handleLogout}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-200"
               >
+                <LogOut className="h-4 w-4" />
                 Logout
               </button>
             </div>
-          </div>
+          ) : (
+            <button
+              onClick={handleLogout}
+              className="w-full p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-200"
+              title="Logout"
+            >
+              <LogOut className="h-5 w-5 mx-auto" />
+            </button>
+          )}
         </div>
-      </header>
-
-      {/* Navigation */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="-mb-px flex space-x-8">
-            {[
-              { id: 'overview', name: 'Overview', icon: '📊', path: '/admin' },
-              { id: 'members', name: 'Members', icon: '👥', path: '/admin' },
-              { id: 'fees', name: 'Fees', icon: '💳', path: '/admin/fees' },
-              { id: 'import', name: 'Import', icon: '📥', path: '/admin/import' },
-              { id: 'documents', name: 'Documents', icon: '📄', path: '/admin/documents' },
-              { id: 'finances', name: 'Finances', icon: '💰', path: '/admin/finances' },
-              { id: 'classes', name: 'Classes', icon: '🏃', path: '/admin/classes' },
-              { id: 'reports', name: 'Reports', icon: '📈', path: '/admin/reports' }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => router.push(tab.path)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  pathname === tab.path || 
-                  (tab.id === 'import' && pathname?.includes('/admin/import')) ||
-                  (tab.id === 'fees' && pathname?.includes('/admin/fees'))
-                    ? 'border-purple-500 text-purple-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <span className="mr-2">{tab.icon}</span>
-                {tab.name}
-              </button>
-            ))}
-          </nav>
-        </div>
-      </div>
+      </aside>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {children}
-      </main>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Bar */}
+        <header className="h-16 bg-white border-b border-gray-200 flex items-center px-6 shadow-sm">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">{title}</h1>
+            {description && <p className="text-sm text-gray-600">{description}</p>}
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <main className="flex-1 overflow-y-auto p-6">
+          {children}
+        </main>
+      </div>
     </div>
   )
 }

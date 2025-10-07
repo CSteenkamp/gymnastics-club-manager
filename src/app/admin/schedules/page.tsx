@@ -534,6 +534,8 @@ export default function SchedulesPage() {
                       type="time"
                       value={formData.startTime}
                       onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
+                      min="13:00"
+                      max="17:00"
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                     />
@@ -547,6 +549,8 @@ export default function SchedulesPage() {
                       type="time"
                       value={formData.endTime}
                       onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
+                      min="13:00"
+                      max="17:00"
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                     />

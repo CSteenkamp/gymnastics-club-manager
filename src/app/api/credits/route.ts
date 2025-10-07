@@ -64,23 +64,7 @@ export async function GET(request: NextRequest) {
         ...(includeTransactions && {
           transactions: {
             orderBy: { createdAt: 'desc' },
-            take: 50,
-            include: {
-              invoice: {
-                select: {
-                  id: true,
-                  invoiceNumber: true,
-                  total: true
-                }
-              },
-              payment: {
-                select: {
-                  id: true,
-                  amount: true,
-                  reference: true
-                }
-              }
-            }
+            take: 50
           }
         })
       }
@@ -92,9 +76,7 @@ export async function GET(request: NextRequest) {
         data: {
           clubId,
           userId: queryUserId,
-          currentBalance: 0,
-          totalCreditsAdded: 0,
-          totalCreditsUsed: 0
+          balance: 0
         },
         include: {
           user: {
@@ -212,16 +194,14 @@ async function handleAddCredit(body: any, adminUserId: string, clubId: string) {
       data: {
         clubId,
         userId: validatedData.userId,
-        currentBalance: 0,
-        totalCreditsAdded: 0,
-        totalCreditsUsed: 0
+        balance: 0
       }
     })
   }
 
   // Add credit transaction
   const result = await prisma.$transaction(async (tx) => {
-    const balanceBefore = Number(creditAccount.currentBalance)
+    const balanceBefore = Number(creditAccount.balance)
     const balanceAfter = balanceBefore + validatedData.amount
 
     // Create credit transaction
@@ -229,15 +209,13 @@ async function handleAddCredit(body: any, adminUserId: string, clubId: string) {
       data: {
         clubId,
         creditAccountId: creditAccount.id,
-        userId: validatedData.userId,
-        type: 'CREDIT_ADDED',
         amount: validatedData.amount,
+        type: 'CREDIT_ADDED',
         balanceBefore,
         balanceAfter,
         description: validatedData.description,
         reference: validatedData.reference,
-        source: validatedData.source,
-        approvedBy: adminUserId
+        createdBy: adminUserId
       }
     })
 
@@ -245,9 +223,7 @@ async function handleAddCredit(body: any, adminUserId: string, clubId: string) {
     const updatedAccount = await tx.creditAccount.update({
       where: { id: creditAccount.id },
       data: {
-        currentBalance: balanceAfter,
-        totalCreditsAdded: Number(creditAccount.totalCreditsAdded) + validatedData.amount,
-        lastActivity: new Date()
+        balance: balanceAfter
       }
     })
 
@@ -298,7 +274,7 @@ async function handleApplyCredit(body: any, adminUserId: string, clubId: string)
     }, { status: 404 })
   }
 
-  if (Number(creditAccount.currentBalance) < validatedData.amount) {
+  if (Number(creditAccount.balance) < validatedData.amount) {
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'Insufficient credit balance'
@@ -330,7 +306,7 @@ async function handleApplyCredit(body: any, adminUserId: string, clubId: string)
 
   // Apply credit to invoice
   const result = await prisma.$transaction(async (tx) => {
-    const balanceBefore = Number(creditAccount.currentBalance)
+    const balanceBefore = Number(creditAccount.balance)
     const balanceAfter = balanceBefore - validatedData.amount
 
     // Create credit transaction
@@ -338,28 +314,13 @@ async function handleApplyCredit(body: any, adminUserId: string, clubId: string)
       data: {
         clubId,
         creditAccountId: creditAccount.id,
-        userId: validatedData.userId,
-        type: 'CREDIT_USED',
         amount: validatedData.amount,
+        type: 'CREDIT_USED',
         balanceBefore,
         balanceAfter,
         description: validatedData.description || `Credit applied to invoice ${invoice.invoiceNumber}`,
-        relatedInvoiceId: validatedData.invoiceId,
-        source: 'MANUAL_ADDITION',
-        approvedBy: adminUserId
-      }
-    })
-
-    // Create credit application record
-    const application = await tx.creditApplication.create({
-      data: {
-        clubId,
-        creditAccountId: creditAccount.id,
-        invoiceId: validatedData.invoiceId,
-        amount: validatedData.amount,
-        appliedBy: adminUserId,
-        description: validatedData.description,
-        status: 'APPLIED'
+        reference: validatedData.invoiceId,
+        createdBy: adminUserId
       }
     })
 
@@ -367,9 +328,7 @@ async function handleApplyCredit(body: any, adminUserId: string, clubId: string)
     const updatedAccount = await tx.creditAccount.update({
       where: { id: creditAccount.id },
       data: {
-        currentBalance: balanceAfter,
-        totalCreditsUsed: Number(creditAccount.totalCreditsUsed) + validatedData.amount,
-        lastActivity: new Date()
+        balance: balanceAfter
       }
     })
 
@@ -384,7 +343,7 @@ async function handleApplyCredit(body: any, adminUserId: string, clubId: string)
       }
     })
 
-    return { transaction, application, updatedAccount, updatedInvoice }
+    return { transaction, updatedAccount, updatedInvoice }
   })
 
   return NextResponse.json<ApiResponse>({

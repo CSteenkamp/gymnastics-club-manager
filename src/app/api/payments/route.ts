@@ -50,8 +50,7 @@ export async function GET(request: NextRequest) {
     const payments = await prisma.payment.findMany({
       where: whereClause,
       include: {
-        // Try to include both old and new schema relationships
-        user: {
+        parent: {
           select: {
             id: true,
             firstName: true,
@@ -59,7 +58,7 @@ export async function GET(request: NextRequest) {
             email: true
           }
         },
-        parent: {
+        user: {
           select: {
             id: true,
             firstName: true,
@@ -69,11 +68,15 @@ export async function GET(request: NextRequest) {
         },
         invoice: {
           include: {
-            child: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true
+            items: {
+              include: {
+                child: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true
+                  }
+                }
               }
             }
           }
@@ -97,7 +100,7 @@ export async function GET(request: NextRequest) {
       where: whereClause
     })
 
-    // Format response data - handle both old and new schema
+    // Format response data
     const formattedPayments = payments.map(payment => ({
       id: payment.id,
       amount: payment.amount,
@@ -108,7 +111,7 @@ export async function GET(request: NextRequest) {
       processedAt: payment.processedAt,
       externalTransactionId: payment.externalTransactionId,
       payfastTransactionId: payment.payfastTransactionId,
-      parent: payment.parent || payment.user, // Fallback to user for old schema
+      parent: payment.parent || payment.user,
       invoice: payment.invoice,
       latestActivity: payment.activities?.[0] || null,
       metadata: payment.metadata
@@ -228,6 +231,7 @@ export async function POST(request: NextRequest) {
     const payment = await prisma.payment.create({
       data: {
         clubId,
+        parentId: targetUserId,
         userId: targetUserId,
         invoiceId,
         amount: new Decimal(validatedData.amount),
@@ -236,6 +240,14 @@ export async function POST(request: NextRequest) {
         notes: validatedData.notes
       },
       include: {
+        parent: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        },
         user: {
           select: {
             id: true,

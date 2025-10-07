@@ -20,12 +20,10 @@ import { useAuth } from '@/hooks/useAuth'
 
 interface CreditAccount {
   id: string
-  currentBalance: number
-  totalCreditsAdded: number
-  totalCreditsUsed: number
-  isActive: boolean
-  minimumBalance: number
-  lastActivity?: string
+  balance: number
+  isActive?: boolean
+  minimumBalance?: number
+  updatedAt?: string
   transactions?: CreditTransaction[]
 }
 
@@ -178,8 +176,8 @@ export function ParentCreditAccount() {
     )
   }
 
-  const hasLowBalance = Number(creditAccount.currentBalance) <= Number(creditAccount.minimumBalance)
-  const hasPositiveBalance = Number(creditAccount.currentBalance) > 0
+  const hasLowBalance = creditAccount.minimumBalance ? Number(creditAccount.balance) <= Number(creditAccount.minimumBalance) : false
+  const hasPositiveBalance = Number(creditAccount.balance) > 0
 
   return (
     <div className="space-y-6">
@@ -211,10 +209,10 @@ export function ParentCreditAccount() {
               <CreditCard className="h-12 w-12 text-blue-600" />
             </div>
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              {formatCurrency(Number(creditAccount.currentBalance))}
+              {formatCurrency(Number(creditAccount.balance))}
             </h2>
             <p className="text-gray-600">Available Credit Balance</p>
-            {!creditAccount.isActive && (
+            {creditAccount.isActive === false && (
               <Badge className="mt-2 bg-yellow-100 text-yellow-800">
                 Account Inactive
               </Badge>
@@ -227,22 +225,30 @@ export function ParentCreditAccount() {
               <TrendingUp className="h-6 w-6 mx-auto mb-2 text-green-600" />
               <p className="text-sm text-green-600">Total Credits Added</p>
               <p className="text-lg font-bold text-green-800">
-                {formatCurrency(Number(creditAccount.totalCreditsAdded))}
+                {formatCurrency(
+                  creditAccount.transactions
+                    ?.filter(t => t.type === 'CREDIT_ADDED' && !t.isReversed)
+                    .reduce((sum, t) => sum + Number(t.amount), 0) || 0
+                )}
               </p>
             </div>
             <div className="bg-red-50 p-4 rounded-lg text-center">
               <TrendingDown className="h-6 w-6 mx-auto mb-2 text-red-600" />
               <p className="text-sm text-red-600">Total Credits Used</p>
               <p className="text-lg font-bold text-red-800">
-                {formatCurrency(Number(creditAccount.totalCreditsUsed))}
+                {formatCurrency(
+                  creditAccount.transactions
+                    ?.filter(t => t.type === 'CREDIT_USED' && !t.isReversed)
+                    .reduce((sum, t) => sum + Number(t.amount), 0) || 0
+                )}
               </p>
             </div>
             <div className="bg-blue-50 p-4 rounded-lg text-center">
               <Clock className="h-6 w-6 mx-auto mb-2 text-blue-600" />
               <p className="text-sm text-blue-600">Last Activity</p>
               <p className="text-lg font-bold text-blue-800">
-                {creditAccount.lastActivity 
-                  ? new Date(creditAccount.lastActivity).toLocaleDateString()
+                {creditAccount.updatedAt
+                  ? new Date(creditAccount.updatedAt).toLocaleDateString()
                   : 'Never'
                 }
               </p>

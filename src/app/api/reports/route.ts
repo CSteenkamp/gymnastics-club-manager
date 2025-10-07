@@ -6,9 +6,12 @@ import { ApiResponse } from '@/types'
 // GET analytics and reports data
 export async function GET(request: NextRequest) {
   try {
+    console.log('📊 Reports API called')
+
     // Verify authentication (admin only)
     const authHeader = request.headers.get('authorization')
     const token = authHeader?.replace('Bearer ', '')
+    console.log('Token present:', !!token)
     
     if (!token) {
       return NextResponse.json<ApiResponse>({
@@ -59,9 +62,16 @@ export async function GET(request: NextRequest) {
         }, { status: 400 })
     }
 
+    // Convert BigInt values to numbers for JSON serialization
+    const jsonSafeData = JSON.parse(JSON.stringify(reportData, (key, value) =>
+      typeof value === 'bigint' ? Number(value) : value
+    ))
+
+    console.log('Report data sample:', JSON.stringify(jsonSafeData).substring(0, 500))
+
     return NextResponse.json<ApiResponse>({
       success: true,
-      data: reportData
+      data: jsonSafeData
     })
 
   } catch (error) {
@@ -154,14 +164,14 @@ async function getOverviewReport(clubId: string, fromDate: Date, toDate: Date) {
 
     // Monthly growth (last 12 months)
     prisma.$queryRaw`
-      SELECT 
-        DATE_TRUNC('month', created_at) as month,
+      SELECT
+        DATE_TRUNC('month', "createdAt") as month,
         COUNT(*) as new_members
-      FROM children 
-      WHERE club_id = ${clubId}
-        AND created_at >= ${fromDate}
-        AND created_at <= ${toDate}
-      GROUP BY DATE_TRUNC('month', created_at)
+      FROM children
+      WHERE "clubId" = ${clubId}
+        AND "createdAt" >= ${fromDate}
+        AND "createdAt" <= ${toDate}
+      GROUP BY DATE_TRUNC('month', "createdAt")
       ORDER BY month DESC
     `
   ])
@@ -171,7 +181,7 @@ async function getOverviewReport(clubId: string, fromDate: Date, toDate: Date) {
       totalMembers,
       totalRevenue: totalRevenue._sum.amount || 0,
       outstandingAmount: outstandingInvoices._sum.total || 0,
-      outstandingCount: outstandingInvoices._count || 0
+      outstandingCount: outstandingInvoices._count.id || 0
     },
     membersByLevel: activeMembersByLevel,
     recentActivity,
@@ -189,15 +199,15 @@ async function getFinancialReport(clubId: string, fromDate: Date, toDate: Date) 
   ] = await Promise.all([
     // Monthly revenue breakdown
     prisma.$queryRaw`
-      SELECT 
-        DATE_TRUNC('month', processed_at) as month,
+      SELECT
+        DATE_TRUNC('month', "processedAt") as month,
         SUM(amount) as revenue,
         COUNT(*) as payment_count
-      FROM payments 
-      WHERE club_id = ${clubId}
-        AND processed_at >= ${fromDate}
-        AND processed_at <= ${toDate}
-      GROUP BY DATE_TRUNC('month', processed_at)
+      FROM payments
+      WHERE "clubId" = ${clubId}
+        AND "processedAt" >= ${fromDate}
+        AND "processedAt" <= ${toDate}
+      GROUP BY DATE_TRUNC('month', "processedAt")
       ORDER BY month DESC
     `,
 
@@ -221,32 +231,32 @@ async function getFinancialReport(clubId: string, fromDate: Date, toDate: Date) 
 
     // Outstanding invoices by age
     prisma.$queryRaw`
-      SELECT 
-        CASE 
-          WHEN due_date >= CURRENT_DATE THEN 'Current'
-          WHEN due_date >= CURRENT_DATE - INTERVAL '30 days' THEN '1-30 days overdue'
-          WHEN due_date >= CURRENT_DATE - INTERVAL '60 days' THEN '31-60 days overdue'
+      SELECT
+        CASE
+          WHEN "dueDate" >= CURRENT_DATE THEN 'Current'
+          WHEN "dueDate" >= CURRENT_DATE - INTERVAL '30 days' THEN '1-30 days overdue'
+          WHEN "dueDate" >= CURRENT_DATE - INTERVAL '60 days' THEN '31-60 days overdue'
           ELSE '60+ days overdue'
         END as age_group,
         COUNT(*) as invoice_count,
         SUM(total) as total_amount
-      FROM invoices 
-      WHERE club_id = ${clubId}
+      FROM invoices
+      WHERE "clubId" = ${clubId}
         AND status IN ('PENDING', 'OVERDUE')
       GROUP BY age_group
     `,
 
     // Revenue by level
     prisma.$queryRaw`
-      SELECT 
+      SELECT
         ii.description as level,
         SUM(ii.amount * ii.quantity) as revenue,
         COUNT(DISTINCT i.id) as invoice_count
       FROM invoice_items ii
-      JOIN invoices i ON ii.invoice_id = i.id
-      WHERE i.club_id = ${clubId}
-        AND i.created_at >= ${fromDate}
-        AND i.created_at <= ${toDate}
+      JOIN invoices i ON ii."invoiceId" = i.id
+      WHERE i."clubId" = ${clubId}
+        AND i."createdAt" >= ${fromDate}
+        AND i."createdAt" <= ${toDate}
         AND i.status = 'PAID'
       GROUP BY ii.description
       ORDER BY revenue DESC
@@ -271,15 +281,15 @@ async function getMembershipReport(clubId: string, fromDate: Date, toDate: Date)
   ] = await Promise.all([
     // Membership growth over time
     prisma.$queryRaw`
-      SELECT 
-        DATE_TRUNC('month', created_at) as month,
+      SELECT
+        DATE_TRUNC('month', "createdAt") as month,
         COUNT(*) as new_members,
-        SUM(COUNT(*)) OVER (ORDER BY DATE_TRUNC('month', created_at)) as cumulative_members
-      FROM children 
-      WHERE club_id = ${clubId}
-        AND created_at >= ${fromDate}
-        AND created_at <= ${toDate}
-      GROUP BY DATE_TRUNC('month', created_at)
+        SUM(COUNT(*)) OVER (ORDER BY DATE_TRUNC('month', "createdAt")) as cumulative_members
+      FROM children
+      WHERE "clubId" = ${clubId}
+        AND "createdAt" >= ${fromDate}
+        AND "createdAt" <= ${toDate}
+      GROUP BY DATE_TRUNC('month', "createdAt")
       ORDER BY month
     `,
 
@@ -296,17 +306,17 @@ async function getMembershipReport(clubId: string, fromDate: Date, toDate: Date)
 
     // Age distribution (if birth date available)
     prisma.$queryRaw`
-      SELECT 
-        CASE 
-          WHEN date_of_birth IS NULL THEN 'Unknown'
-          WHEN EXTRACT(YEAR FROM AGE(date_of_birth)) < 6 THEN 'Under 6'
-          WHEN EXTRACT(YEAR FROM AGE(date_of_birth)) < 10 THEN '6-9 years'
-          WHEN EXTRACT(YEAR FROM AGE(date_of_birth)) < 15 THEN '10-14 years'
+      SELECT
+        CASE
+          WHEN "dateOfBirth" IS NULL THEN 'Unknown'
+          WHEN EXTRACT(YEAR FROM AGE("dateOfBirth")) < 6 THEN 'Under 6'
+          WHEN EXTRACT(YEAR FROM AGE("dateOfBirth")) < 10 THEN '6-9 years'
+          WHEN EXTRACT(YEAR FROM AGE("dateOfBirth")) < 15 THEN '10-14 years'
           ELSE '15+ years'
         END as age_group,
         COUNT(*) as member_count
-      FROM children 
-      WHERE club_id = ${clubId}
+      FROM children
+      WHERE "clubId" = ${clubId}
         AND status = 'ACTIVE'
       GROUP BY age_group
       ORDER BY age_group
@@ -346,80 +356,80 @@ async function getAttendanceReport(clubId: string, fromDate: Date, toDate: Date)
   ] = await Promise.all([
     // Attendance by day of week
     prisma.$queryRaw`
-      SELECT 
-        s.day_of_week,
+      SELECT
+        s."dayOfWeek",
         COUNT(a.id) as total_sessions,
         COUNT(CASE WHEN a.status = 'PRESENT' THEN 1 END) as present_count,
         COUNT(CASE WHEN a.status = 'ABSENT' THEN 1 END) as absent_count,
         ROUND(
-          COUNT(CASE WHEN a.status = 'PRESENT' THEN 1 END) * 100.0 / COUNT(a.id), 
+          COUNT(CASE WHEN a.status = 'PRESENT' THEN 1 END) * 100.0 / COUNT(a.id),
           2
         ) as attendance_rate
       FROM attendance a
-      JOIN classes c ON a.class_id = c.id
-      JOIN schedules s ON c.schedule_id = s.id
-      WHERE a.club_id = ${clubId}
-        AND a.marked_at >= ${fromDate}
-        AND a.marked_at <= ${toDate}
-      GROUP BY s.day_of_week
+      JOIN classes c ON a."classId" = c.id
+      JOIN schedules s ON c."scheduleId" = s.id
+      WHERE a."clubId" = ${clubId}
+        AND a."markedAt" >= ${fromDate}
+        AND a."markedAt" <= ${toDate}
+      GROUP BY s."dayOfWeek"
       ORDER BY attendance_rate DESC
     `,
 
     // Attendance by level
     prisma.$queryRaw`
-      SELECT 
+      SELECT
         c.level,
         COUNT(a.id) as total_sessions,
         COUNT(CASE WHEN a.status = 'PRESENT' THEN 1 END) as present_count,
         ROUND(
-          COUNT(CASE WHEN a.status = 'PRESENT' THEN 1 END) * 100.0 / COUNT(a.id), 
+          COUNT(CASE WHEN a.status = 'PRESENT' THEN 1 END) * 100.0 / COUNT(a.id),
           2
         ) as attendance_rate
       FROM attendance a
-      JOIN classes c ON a.class_id = c.id
-      WHERE a.club_id = ${clubId}
-        AND a.marked_at >= ${fromDate}
-        AND a.marked_at <= ${toDate}
+      JOIN classes c ON a."classId" = c.id
+      WHERE a."clubId" = ${clubId}
+        AND a."markedAt" >= ${fromDate}
+        AND a."markedAt" <= ${toDate}
       GROUP BY c.level
       ORDER BY attendance_rate DESC
     `,
 
     // Popular time slots
     prisma.$queryRaw`
-      SELECT 
-        s.start_time,
-        s.end_time,
-        s.day_of_week,
+      SELECT
+        s."startTime",
+        s."endTime",
+        s."dayOfWeek",
         COUNT(DISTINCT a.id) as total_attendances,
-        COUNT(DISTINCT e.child_id) as enrolled_children
+        COUNT(DISTINCT e."childId") as enrolled_children
       FROM schedules s
-      LEFT JOIN enrollments e ON s.id = e.schedule_id AND e.is_active = true
-      LEFT JOIN classes c ON s.id = c.schedule_id
-      LEFT JOIN attendance a ON c.id = a.class_id 
-        AND a.marked_at >= ${fromDate}
-        AND a.marked_at <= ${toDate}
-      WHERE s.club_id = ${clubId}
-        AND s.is_active = true
-      GROUP BY s.id, s.start_time, s.end_time, s.day_of_week
+      LEFT JOIN enrollments e ON s.id = e."scheduleId" AND e."isActive" = true
+      LEFT JOIN classes c ON s.id = c."scheduleId"
+      LEFT JOIN attendance a ON c.id = a."classId"
+        AND a."markedAt" >= ${fromDate}
+        AND a."markedAt" <= ${toDate}
+      WHERE s."clubId" = ${clubId}
+        AND s."isActive" = true
+      GROUP BY s.id, s."startTime", s."endTime", s."dayOfWeek"
       ORDER BY total_attendances DESC
       LIMIT 10
     `,
 
     // Overall attendance rates by month
     prisma.$queryRaw`
-      SELECT 
-        DATE_TRUNC('month', a.marked_at) as month,
+      SELECT
+        DATE_TRUNC('month', a."markedAt") as month,
         COUNT(a.id) as total_sessions,
         COUNT(CASE WHEN a.status = 'PRESENT' THEN 1 END) as present_count,
         ROUND(
-          COUNT(CASE WHEN a.status = 'PRESENT' THEN 1 END) * 100.0 / COUNT(a.id), 
+          COUNT(CASE WHEN a.status = 'PRESENT' THEN 1 END) * 100.0 / COUNT(a.id),
           2
         ) as attendance_rate
       FROM attendance a
-      WHERE a.club_id = ${clubId}
-        AND a.marked_at >= ${fromDate}
-        AND a.marked_at <= ${toDate}
-      GROUP BY DATE_TRUNC('month', a.marked_at)
+      WHERE a."clubId" = ${clubId}
+        AND a."markedAt" >= ${fromDate}
+        AND a."markedAt" <= ${toDate}
+      GROUP BY DATE_TRUNC('month', a."markedAt")
       ORDER BY month DESC
     `
   ])

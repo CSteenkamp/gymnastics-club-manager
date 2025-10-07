@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       const parentChildren = await prisma.child.findMany({
         where: {
           clubId: payload.clubId,
-          parents: {
+          users: {
             some: {
               id: payload.userId
             }
@@ -60,13 +60,13 @@ export async function GET(request: NextRequest) {
     const enrollments = await prisma.enrollment.findMany({
       where,
       include: {
-        child: {
+        children: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
             level: true,
-            parents: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
             }
           }
         },
-        schedule: {
+        schedules: {
           select: {
             id: true,
             name: true,
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
             endTime: true,
             location: true,
             maxCapacity: true,
-            coach: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
         clubId: payload.clubId
       },
       include: {
-        parents: {
+        users: {
           select: { id: true }
         }
       }
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
 
     // For parents, verify they can enroll this child
     if (payload.role === 'PARENT') {
-      const isParentOfChild = child.parents.some(parent => parent.id === payload.userId)
+      const isParentOfChild = child.users.some(parent => parent.id === payload.userId)
       if (!isParentOfChild) {
         return NextResponse.json<ApiResponse>({
           success: false,
@@ -233,7 +233,7 @@ export async function POST(request: NextRequest) {
       where: {
         childId,
         isActive: true,
-        schedule: {
+        schedules: {
           dayOfWeek: schedule.dayOfWeek,
           OR: [
             {
@@ -258,7 +258,7 @@ export async function POST(request: NextRequest) {
         }
       },
       include: {
-        schedule: {
+        schedules: {
           select: {
             name: true,
             dayOfWeek: true,
@@ -273,7 +273,7 @@ export async function POST(request: NextRequest) {
       const conflict = conflictingEnrollments[0]
       return NextResponse.json<ApiResponse>({
         success: false,
-        error: `Schedule conflict: Child is already enrolled in "${conflict.schedule.name}" on ${conflict.schedule.dayOfWeek} from ${conflict.schedule.startTime} to ${conflict.schedule.endTime}`
+        error: `Schedule conflict: Child is already enrolled in "${conflict.schedules.name}" on ${conflict.schedules.dayOfWeek} from ${conflict.schedules.startTime} to ${conflict.schedules.endTime}`
       }, { status: 400 })
     }
 
@@ -287,7 +287,7 @@ export async function POST(request: NextRequest) {
         notes
       },
       include: {
-        child: {
+        children: {
           select: {
             id: true,
             firstName: true,
@@ -295,7 +295,7 @@ export async function POST(request: NextRequest) {
             level: true
           }
         },
-        schedule: {
+        schedules: {
           select: {
             id: true,
             name: true,
@@ -304,7 +304,7 @@ export async function POST(request: NextRequest) {
             startTime: true,
             endTime: true,
             location: true,
-            coach: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -324,7 +324,97 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error creating enrollment:', error)
-    
+
+    return NextResponse.json<ApiResponse>({
+      success: false,
+      error: 'Internal server error'
+    }, { status: 500 })
+  }
+}
+
+// DELETE - Unenroll child from class
+export async function DELETE(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('authorization')
+    const token = authHeader?.replace('Bearer ', '')
+
+    if (!token) {
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Authentication required'
+      }, { status: 401 })
+    }
+
+    const payload = verifyToken(token)
+    if (!payload) {
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Invalid token'
+      }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { childId, scheduleId } = body
+
+    if (!childId || !scheduleId) {
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Child ID and Schedule ID are required'
+      }, { status: 400 })
+    }
+
+    // Find enrollment
+    const enrollment = await prisma.enrollment.findFirst({
+      where: {
+        childId,
+        scheduleId,
+        isActive: true
+      },
+      include: {
+        children: {
+          include: {
+            users: {
+              select: { id: true }
+            }
+          }
+        }
+      }
+    })
+
+    if (!enrollment) {
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Enrollment not found'
+      }, { status: 404 })
+    }
+
+    // For parents, verify they can unenroll this child
+    if (payload.role === 'PARENT') {
+      const isParentOfChild = enrollment.children.users.some((parent: any) => parent.id === payload.userId)
+      if (!isParentOfChild) {
+        return NextResponse.json<ApiResponse>({
+          success: false,
+          error: 'You can only unenroll your own children'
+        }, { status: 403 })
+      }
+    }
+
+    // Update enrollment to inactive
+    await prisma.enrollment.update({
+      where: { id: enrollment.id },
+      data: {
+        isActive: false,
+        endDate: new Date()
+      }
+    })
+
+    return NextResponse.json<ApiResponse>({
+      success: true,
+      message: 'Successfully unenrolled from class'
+    })
+
+  } catch (error) {
+    console.error('Error unenrolling from class:', error)
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'Internal server error'

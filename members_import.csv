@@ -1,0 +1,64 @@
+firstName,lastName,dateOfBirth,gender,level,monthlyFee,status,parentFirstName,parentLastName,parentEmail,parentPhone
+Alia,Janse v Rensburg,TBD,FEMALE,TBD,450,ACTIVE,Parent,Janse v Rensburg,jansevrensburg.parent1@placeholder.com,TBD
+Al,Du Toit,TBD,FEMALE,Inactive,450,INACTIVE,Parent,Du Toit,dutoit.parent2@placeholder.com,TBD
+Ale,Offier,TBD,FEMALE,Pre level 1,550,ACTIVE,Parent,Offier,offier.parent3@placeholder.com,TBD
+Alex,Janse v Rensburg,TBD,FEMALE,R,450,ACTIVE,Parent,Janse v Rensburg,jansevrensburg.parent4@placeholder.com,TBD
+Ankia,Slabbert,TBD,FEMALE,TBD,700,ACTIVE,Parent,Slabbert,slabbert.parent5@placeholder.com,TBD
+Anlia,Cillie,TBD,FEMALE,Pre level 1,550,ACTIVE,Parent,Cillie,cillie.parent6@placeholder.com,TBD
+Ava,Modisana,TBD,FEMALE,TBD,600,ACTIVE,Parent,Modisana,modisana.parent7@placeholder.com,TBD
+Bea,du Bruyn,TBD,FEMALE,R,550,ACTIVE,Parent,du Bruyn,dubruyn.parent8@placeholder.com,TBD
+Ben,Davin,TBD,MALE,R,450,ACTIVE,Parent,Davin,davin.parent9@placeholder.com,TBD
+Brenda,Marais,TBD,FEMALE,1,600,ACTIVE,Parent,Marais,marais.parent10@placeholder.com,TBD
+Carli,Prins,TBD,MALE,R,450,ACTIVE,Parent,Prins,prins.parent11@placeholder.com,TBD
+Corli,Gibson,TBD,FEMALE,2,650,ACTIVE,Parent,Gibson,gibson.parent12@placeholder.com,TBD
+Dalené,Vollgraaff,TBD,FEMALE,3,450,ACTIVE,Parent,Vollgraaff,vollgraaff.parent13@placeholder.com,TBD
+Edlyn,van Rooyen,TBD,FEMALE,1,600,ACTIVE,Parent,van Rooyen,vanrooyen.parent14@placeholder.com,TBD
+Elizabet,Cillie,TBD,FEMALE,R,450,ACTIVE,Parent,Cillie,cillie.parent15@placeholder.com,TBD
+Elizabeth,Hill,TBD,FEMALE,2,650,ACTIVE,Parent,Hill,hill.parent16@placeholder.com,TBD
+Ellen-Mari,Laubsher,TBD,FEMALE,TBD,650,ACTIVE,Parent,Laubsher,laubsher.parent17@placeholder.com,TBD
+Emma,Negrini,TBD,FEMALE,Pre level 1,550,ACTIVE,Parent,Negrini,negrini.parent18@placeholder.com,TBD
+Emma,Coetzee,TBD,FEMALE,1,600,ACTIVE,Parent,Coetzee,coetzee.parent19@placeholder.com,TBD
+Gabriella,Du Toit,TBD,FEMALE,2,650,ACTIVE,Parent,Du Toit,dutoit.parent20@placeholder.com,TBD
+George,Negrini,TBD,MALE,Inactive,450,INACTIVE,Parent,Negrini,negrini.parent21@placeholder.com,TBD
+Hanna,Stamer,TBD,FEMALE,Inactive,650,INACTIVE,Parent,Stamer,stamer.parent22@placeholder.com,TBD
+Irma-Ann,Offier,TBD,FEMALE,3,700,ACTIVE,Parent,Offier,offier.parent23@placeholder.com,TBD
+Isabella,Van Wyk,TBD,FEMALE,RR,450,ACTIVE,Parent,Van Wyk,vanwyk.parent24@placeholder.com,TBD
+Isabella,de Jager,TBD,FEMALE,1,450,ACTIVE,Parent,de Jager,dejager.parent25@placeholder.com,TBD
+Janay,Abrahms,TBD,FEMALE,3,700,ACTIVE,Parent,Abrahms,abrahms.parent26@placeholder.com,TBD
+Jani,Nieuwenhuis,TBD,FEMALE,1,600,ACTIVE,Parent,Nieuwenhuis,nieuwenhuis.parent27@placeholder.com,TBD
+Jeanne,vd Merwe,TBD,FEMALE,2,650,ACTIVE,Parent,vd Merwe,vdmerwe.parent28@placeholder.com,TBD
+Joalet,Gibson,TBD,FEMALE,2,650,ACTIVE,Parent,Gibson,gibson.parent29@placeholder.com,TBD
+Karli,Brandt,TBD,FEMALE,Pre level 1,550,ACTIVE,Parent,Brandt,brandt.parent30@placeholder.com,TBD
+Kaylen,Lintbaar,TBD,FEMALE,1,600,ACTIVE,Parent,Lintbaar,lintbaar.parent31@placeholder.com,TBD
+Kaynene,Pleterse,TBD,FEMALE,Inactive,550,INACTIVE,Parent,Pleterse,pleterse.parent32@placeholder.com,TBD
+Kristi,du Plessis,TBD,FEMALE,RR,450,ACTIVE,Parent,du Plessis,duplessis.parent33@placeholder.com,TBD
+Layla,du Plessis,TBD,FEMALE,3,450,ACTIVE,Parent,du Plessis,duplessis.parent34@placeholder.com,TBD
+Lea,Karsten,TBD,FEMALE,R,450,ACTIVE,Parent,Karsten,karsten.parent35@placeholder.com,TBD
+Leah,Goosen,TBD,FEMALE,1,600,ACTIVE,Parent,Goosen,goosen.parent36@placeholder.com,TBD
+Leah,Pretokar,TBD,FEMALE,3,700,ACTIVE,Parent,Pretokar,pretokar.parent37@placeholder.com,TBD
+Lia,vd Merwe,TBD,FEMALE,Pre level 1,600,ACTIVE,Parent,vd Merwe,vdmerwe.parent38@placeholder.com,TBD
+Lidiaman,Bergman,TBD,FEMALE,R,450,ACTIVE,Parent,Bergman,bergman.parent39@placeholder.com,TBD
+Lilly,Jacobs,TBD,FEMALE,Pre level 1,TBD,ACTIVE,Parent,Jacobs,jacobs.parent40@placeholder.com,TBD
+Lily-Rose,Nortje,TBD,FEMALE,2,0,ACTIVE,Parent,Nortje,nortje.parent41@placeholder.com,TBD
+Mia,Cupak,TBD,FEMALE,3,700,ACTIVE,Parent,Cupak,cupak.parent42@placeholder.com,TBD
+Mikayla,Nieuwenhuis,TBD,FEMALE,Pre level 1,550,ACTIVE,Parent,Nieuwenhuis,nieuwenhuis.parent43@placeholder.com,TBD
+Nelis,Van Zyl,TBD,FEMALE,R,450,ACTIVE,Parent,Van Zyl,vanzyl.parent44@placeholder.com,TBD
+Olivia,Koster,TBD,FEMALE,Inactive,650,INACTIVE,Parent,Koster,koster.parent45@placeholder.com,TBD
+Olivia,Viljoen,TBD,FEMALE,3,700,ACTIVE,Parent,Viljoen,viljoen.parent46@placeholder.com,TBD
+Rhede,Osche,TBD,FEMALE,Inactive,650,INACTIVE,Parent,Osche,osche.parent47@placeholder.com,TBD
+Sofia,Foster,TBD,FEMALE,Inactive,600,INACTIVE,Parent,Foster,foster.parent48@placeholder.com,TBD
+Vera-Mari,du Toit,TBD,FEMALE,Inactive,450,INACTIVE,Parent,du Toit,dutoit.parent49@placeholder.com,TBD
+Vicky,du Plessis,TBD,FEMALE,R,400,ACTIVE,Parent,du Plessis,duplessis.parent50@placeholder.com,TBD
+Handie,Kruger,TBD,MALE,R,450,ACTIVE,Parent,Kruger,kruger.parent51@placeholder.com,TBD
+Abigail,Stassen,TBD,FEMALE,Pre level 1,450,ACTIVE,Parent,Stassen,stassen.parent52@placeholder.com,TBD
+Lethabe,Dickers,TBD,FEMALE,RR,550,ACTIVE,Parent,Dickers,dickers.parent53@placeholder.com,TBD
+Nicolaas,Gibson,TBD,MALE,RR,250,ACTIVE,Parent,Gibson,gibson.parent54@placeholder.com,TBD
+Pria,Carolus,TBD,FEMALE,RR,450,ACTIVE,Parent,Carolus,carolus.parent55@placeholder.com,TBD
+Alida,du Toit,TBD,FEMALE,RR,450,ACTIVE,Parent,du Toit,dutoit.parent56@placeholder.com,TBD
+Benjamin,Du Toit,TBD,MALE,RR,450,ACTIVE,Parent,Du Toit,dutoit.parent57@placeholder.com,TBD
+Kaylie,Du Toit,TBD,FEMALE,RR,450,ACTIVE,Parent,Du Toit,dutoit.parent58@placeholder.com,TBD
+Taylor,Peterson,TBD,FEMALE,Pre level 1,550,ACTIVE,Parent,Peterson,peterson.parent59@placeholder.com,TBD
+Kaydon,Gibson,TBD,MALE,RR,450,ACTIVE,Parent,Gibson,gibson.parent60@placeholder.com,TBD
+Avah,Maralack,TBD,FEMALE,RR,450,ACTIVE,Parent,Maralack,maralack.parent61@placeholder.com,TBD
+Mikela,Gibson,TBD,FEMALE,Pre level 1,450,ACTIVE,Parent,Gibson,gibson.parent62@placeholder.com,TBD
+Anah,Maralack,TBD,FEMALE,RR,350,ACTIVE,Parent,Maralack,maralack.parent63@placeholder.com,TBD

@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       const parentChildren = await prisma.child.findMany({
         where: {
           clubId: payload.clubId,
-          parents: {
+          users: {
             some: {
               id: payload.userId
             }
@@ -62,23 +62,23 @@ export async function GET(request: NextRequest) {
 
     // Filter by date range if provided
     if (dateFrom || dateTo) {
-      where.class = {
+      where.classes = {
         date: {}
       }
-      if (dateFrom) where.class.date.gte = new Date(dateFrom)
-      if (dateTo) where.class.date.lte = new Date(dateTo)
+      if (dateFrom) where.classes.date.gte = new Date(dateFrom)
+      if (dateTo) where.classes.date.lte = new Date(dateTo)
     }
 
     const attendance = await prisma.attendance.findMany({
       where,
       include: {
-        child: {
+        children: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
             level: true,
-            parents: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
             }
           }
         },
-        class: {
+        classes: {
           select: {
             id: true,
             name: true,
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
             startTime: true,
             endTime: true,
             location: true,
-            schedule: {
+            schedules: {
               select: {
                 id: true,
                 name: true,
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
             }
           }
         },
-        markedByUser: {
+        users: {
           select: {
             id: true,
             firstName: true,
@@ -116,8 +116,8 @@ export async function GET(request: NextRequest) {
         }
       },
       orderBy: [
-        { class: { date: 'desc' } },
-        { child: { firstName: 'asc' } }
+        { classes: { date: 'desc' } },
+        { children: { firstName: 'asc' } }
       ]
     })
 

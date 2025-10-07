@@ -42,7 +42,7 @@ export async function GET(
       }, { status: 401 })
     }
 
-    const feeType = await prisma.feeType.findFirst({
+    const feeType = await prisma.feeStructure.findFirst({
       where: {
         id: params.id,
         clubId
@@ -112,7 +112,7 @@ export async function PUT(
       }, { status: 403 })
     }
 
-    const feeType = await prisma.feeType.findFirst({
+    const feeType = await prisma.feeStructure.findFirst({
       where: {
         id: params.id,
         clubId
@@ -138,7 +138,7 @@ export async function PUT(
       }
     }
 
-    const updatedFeeType = await prisma.feeType.update({
+    const updatedFeeType = await prisma.feeStructure.update({
       where: { id: params.id },
       data: {
         ...validatedData,
@@ -216,7 +216,7 @@ export async function DELETE(
       }, { status: 403 })
     }
 
-    const feeType = await prisma.feeType.findFirst({
+    const feeType = await prisma.feeStructure.findFirst({
       where: {
         id: params.id,
         clubId
@@ -231,7 +231,7 @@ export async function DELETE(
     }
 
     // Soft delete by setting isActive to false
-    const updatedFeeType = await prisma.feeType.update({
+    const updatedFeeType = await prisma.feeStructure.update({
       where: { id: params.id },
       data: {
         isActive: false,

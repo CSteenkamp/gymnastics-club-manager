@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     const classes = await prisma.class.findMany({
       where,
       include: {
-        schedule: {
+        schedules: {
           select: {
             id: true,
             name: true,
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
             maxCapacity: true
           }
         },
-        coach: {
+        users: {
           select: {
             id: true,
             firstName: true,
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
         },
         attendance: {
           include: {
-            child: {
+            children: {
               select: {
                 id: true,
                 firstName: true,

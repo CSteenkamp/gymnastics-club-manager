@@ -2,8 +2,13 @@ import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { User } from '@prisma/client'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-in-production'
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
+// Fail fast if JWT_SECRET is not configured
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required but not set')
+}
+
+const JWT_SECRET: string = process.env.JWT_SECRET
+const JWT_EXPIRES_IN: string = process.env.JWT_EXPIRES_IN || '7d'
 
 export interface JWTPayload {
   userId: string

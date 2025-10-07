@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
         phone: true,
         role: true,
         createdAt: true,
-        club: {
+        clubs: {
           select: {
             id: true,
             name: true
@@ -79,9 +79,15 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // Rename clubs to club for frontend compatibility
+    const { clubs, ...userWithoutClubs } = user
+
     return NextResponse.json<ApiResponse>({
       success: true,
-      data: user,
+      data: {
+        ...userWithoutClubs,
+        club: clubs
+      },
       message: 'Account created successfully'
     }, { status: 201 })
 

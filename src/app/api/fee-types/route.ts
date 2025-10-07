@@ -57,21 +57,13 @@ export async function GET(request: NextRequest) {
       where.isActive = true
     }
 
-    const feeTypes = await prisma.feeType.findMany({
-      where,
-      include: {
-        discounts: {
-          where: { isActive: true }
-        },
-        _count: {
-          select: {
-            discounts: true
-          }
-        }
+    const feeTypes = await prisma.feeStructure.findMany({
+      where: {
+        clubId,
+        ...(includeInactive ? {} : { isActive: true })
       },
       orderBy: [
-        { category: 'asc' },
-        { name: 'asc' }
+        { level: 'asc' }
       ]
     })
 
@@ -114,7 +106,7 @@ export async function POST(request: NextRequest) {
     const validatedData = feeTypeSchema.parse(body)
 
     // Check if code already exists for this club
-    const existingFeeType = await prisma.feeType.findUnique({
+    const existingFeeType = await prisma.feeStructure.findUnique({
       where: {
         clubId_code: {
           clubId,
@@ -139,7 +131,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const feeType = await prisma.feeType.create({
+    const feeType = await prisma.feeStructure.create({
       data: {
         clubId,
         name: validatedData.name,

@@ -1,16 +1,26 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { FeeAdjustmentManager } from '@/components/fees/FeeAdjustmentManager'
+import { useRouter, usePathname } from 'next/navigation'
+import { AdminLayout } from '@/components/layout/AdminLayout'
+import { WeeklyTimetable } from '@/components/classes/WeeklyTimetable'
+import {
+  Users,
+  DollarSign,
+  FileText,
+  TrendingUp,
+  ArrowUpRight
+} from 'lucide-react'
 
 interface DashboardStats {
   totalMembers: number
-  totalInvoices: number
+  activeMembers: number
   totalRevenue: number
-  pendingPayments: number
+  monthlyRevenue: number
+  pendingInvoices: number
   outstandingBalance: number
-  newMembersThisMonth: number
+  upcomingClasses: number
+  revenueChange: number
 }
 
 interface RecentActivity {
@@ -21,170 +31,195 @@ interface RecentActivity {
   amount?: number
 }
 
-interface Child {
+interface ClassSchedule {
   id: string
-  firstName: string
-  lastName: string
-  dateOfBirth?: string
-  gender?: string
+  name: string
+  description: string
+  dayOfWeek: string
+  startTime: string
+  endTime: string
   level: string
-  monthlyFee: number
-  status: string
-  notes?: string
-  parents: {
+  venue: string
+  currentEnrollment: number
+  maxCapacity: number
+  isActive: boolean
+  coach?: {
     id: string
     firstName: string
     lastName: string
-    email: string
-    phone?: string
-  }[]
+  }
 }
 
-interface User {
-  id: string
-  firstName: string
-  lastName: string
-  email: string
-  role: string
-}
-
-export default function AdminPage() {
-  const [user, setUser] = useState<User | null>(null)
-  const [activeTab, setActiveTab] = useState('overview')
+export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats>({
     totalMembers: 0,
-    totalInvoices: 0,
+    activeMembers: 0,
     totalRevenue: 0,
-    pendingPayments: 0,
+    monthlyRevenue: 0,
+    pendingInvoices: 0,
     outstandingBalance: 0,
-    newMembersThisMonth: 0
+    upcomingClasses: 0,
+    revenueChange: 0
   })
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [members, setMembers] = useState<Child[]>([])
-  const [membersLoading, setMembersLoading] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterLevel, setFilterLevel] = useState('')
-  const [filterStatus, setFilterStatus] = useState('')
-  const [filterGender, setFilterGender] = useState('')
-  const [showAddMember] = useState(false)
+  const [weeklyClasses, setWeeklyClasses] = useState<ClassSchedule[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const pathname = usePathname()
 
+  // Consolidated useEffect with proper dependencies
   useEffect(() => {
-    // Check if user is logged in and has admin role
-    const token = localStorage.getItem('token')
-    const userData = localStorage.getItem('user')
-    
-    if (!token || !userData) {
-      router.push('/login')
-      return
+    let mounted = true
+    let timeoutId: NodeJS.Timeout
+
+    const loadData = async () => {
+      if (pathname === '/admin' && mounted) {
+        await loadDashboardData()
+      }
     }
 
-    const parsedUser = JSON.parse(userData)
-    if (parsedUser.role !== 'ADMIN' && parsedUser.role !== 'FINANCE_ADMIN') {
-      router.push('/dashboard')
-      return
+    // Load data initially
+    loadData()
+
+    // Reload data when page becomes visible (e.g., switching tabs)
+    const handleVisibilityChange = () => {
+      if (!document.hidden && pathname === '/admin' && mounted) {
+        loadData()
+      }
     }
 
-    setUser(parsedUser)
-    loadDashboardData()
-  }, [router])
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
-  useEffect(() => {
-    if (activeTab === 'members' && user) {
-      loadMembers()
+    return () => {
+      mounted = false
+      clearTimeout(timeoutId)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [activeTab, user])
+  }, [pathname])
 
   const loadDashboardData = async () => {
-    setIsLoading(true)
     try {
-      // Simulate loading dashboard data
-      // In a real app, you would fetch this from your API
-      setTimeout(() => {
-        setStats({
-          totalMembers: 127,
-          totalInvoices: 45,
-          totalRevenue: 45280,
-          pendingPayments: 12,
-          outstandingBalance: 8400,
-          newMembersThisMonth: 8
-        })
-        
-        setRecentActivity([
-          {
-            id: '1',
-            type: 'payment',
-            description: 'Sarah Johnson paid monthly fee',
-            timestamp: '2 hours ago',
-            amount: 850
-          },
-          {
-            id: '2',
-            type: 'registration',
-            description: 'New member: Emma Smith registered',
-            timestamp: '5 hours ago'
-          },
-          {
-            id: '3',
-            type: 'invoice',
-            description: 'Monthly invoices generated for March',
-            timestamp: '1 day ago'
-          },
-          {
-            id: '4',
-            type: 'payment',
-            description: 'Michael Brown paid registration fee',
-            timestamp: '2 days ago',
-            amount: 1200
-          }
-        ])
-        
-        setIsLoading(false)
-      }, 1000)
-    } catch (error) {
-      console.error('Error loading dashboard data:', error)
-      setIsLoading(false)
-    }
-  }
-
-  const loadMembers = async () => {
-    setMembersLoading(true)
-    try {
+      setError(null)
       const token = localStorage.getItem('token')
-      const response = await fetch('/api/children', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
 
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success) {
-          setMembers(data.data)
-        }
+      if (!token) {
+        setError('No authentication token found')
+        setLoading(false)
+        return
       }
-    } catch (error) {
-      console.error('Error loading members:', error)
-    } finally {
-      setMembersLoading(false)
-    }
-  }
 
-  const handleLogout = async () => {
-    try {
-      // Call logout API to clear cookie
-      await fetch('/api/auth/logout', {
-        method: 'POST'
-      })
-    } catch (error) {
-      console.error('Logout error:', error)
+      // Add timeout to API calls
+      const timeout = (ms: number) => new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), ms)
+      )
+
+      const fetchWithTimeout = (url: string, options: any, timeoutMs = 10000) => {
+        return Promise.race([
+          fetch(url, options),
+          timeout(timeoutMs)
+        ]) as Promise<Response>
+      }
+
+      const userData = localStorage.getItem('user')
+      const user = userData ? JSON.parse(userData) : null
+
+      const [childrenRes, invoicesRes, paymentsRes] = await Promise.all([
+        fetchWithTimeout('/api/children', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetchWithTimeout('/api/invoices', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetchWithTimeout('/api/payments', { headers: { 'Authorization': `Bearer ${token}` } })
+      ])
+
+      // Check for HTTP errors
+      if (!childrenRes.ok || !invoicesRes.ok || !paymentsRes.ok) {
+        throw new Error('Failed to fetch dashboard data')
+      }
+
+      const children = await childrenRes.json()
+      const invoices = await invoicesRes.json()
+      const payments = await paymentsRes.json()
+
+      // Fetch schedules separately (optional - don't fail if this errors)
+      try {
+        const schedulesRes = await fetchWithTimeout('/api/schedules', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+
+        if (schedulesRes.ok) {
+          const schedules = await schedulesRes.json()
+
+          // Filter schedules for current user if they're a coach
+          if (schedules.success && Array.isArray(schedules.data) && user) {
+            const userSchedules = schedules.data.filter((s: any) =>
+              !user.role || user.role === 'ADMIN' || user.role === 'FINANCE_ADMIN' || s.coach?.id === user.id
+            ).map((s: any) => ({
+              ...s,
+              // Ensure all required fields are present
+              name: s.name || s.level,
+              description: s.description || '',
+              maxCapacity: s.maxCapacity || 15,
+              isActive: s.isActive !== false
+            }))
+            setWeeklyClasses(userSchedules)
+          }
+        }
+      } catch (error) {
+        console.log('Failed to fetch schedules (optional):', error)
+        // Don't throw - schedules are optional for dashboard
+      }
+
+      if (children.success && invoices.success && payments.success) {
+        const activeMembers = Array.isArray(children.data) ? children.data.filter((c: any) => c.status === 'ACTIVE').length : 0
+
+        // Handle payments.data structure (it's an object with payments array)
+        const paymentsArray = Array.isArray(payments.data?.payments) ? payments.data.payments : []
+        const totalRevenue = paymentsArray
+          .filter((p: any) => p.status === 'COMPLETED')
+          .reduce((sum: number, p: any) => sum + Number(p.amount), 0)
+
+        const pendingInvoices = Array.isArray(invoices.data) ? invoices.data.filter((i: any) => i.status === 'PENDING').length : 0
+        const outstandingBalance = Array.isArray(invoices.data)
+          ? invoices.data
+              .filter((i: any) => i.status === 'PENDING' || i.status === 'OVERDUE')
+              .reduce((sum: number, i: any) => sum + Number(i.total), 0)
+          : 0
+
+        // Calculate recent activity
+        const activities: RecentActivity[] = [
+          ...paymentsArray.slice(0, 5).map((p: any) => ({
+            id: p.id,
+            type: 'payment' as const,
+            description: `Payment received - R${Number(p.amount).toFixed(2)}`,
+            timestamp: p.createdAt,
+            amount: Number(p.amount)
+          })),
+          ...(Array.isArray(children.data) ? children.data.slice(0, 3).map((c: any) => ({
+            id: c.id,
+            type: 'registration' as const,
+            description: `New member: ${c.firstName} ${c.lastName}`,
+            timestamp: c.createdAt
+          })) : [])
+        ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 8)
+
+        setStats({
+          totalMembers: Array.isArray(children.data) ? children.data.length : 0,
+          activeMembers,
+          totalRevenue,
+          monthlyRevenue: totalRevenue,
+          pendingInvoices,
+          outstandingBalance,
+          upcomingClasses: 0,
+          revenueChange: 0
+        })
+        setRecentActivity(activities)
+      } else {
+        setError('Failed to load some dashboard data')
+      }
+    } catch (error: any) {
+      console.error('Failed to load dashboard data:', error)
+      setError(error.message || 'Failed to load dashboard data')
     } finally {
-      // Clear localStorage and redirect
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      router.push('/login')
+      setLoading(false)
     }
   }
 
@@ -195,618 +230,117 @@ export default function AdminPage() {
     }).format(amount)
   }
 
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'payment':
-        return '💳'
-      case 'registration':
-        return '👤'
-      case 'invoice':
-        return '📄'
-      default:
-        return '📋'
-    }
+  const formatTimeAgo = (timestamp: string) => {
+    const seconds = Math.floor((new Date().getTime() - new Date(timestamp).getTime()) / 1000)
+    if (seconds < 60) return 'Just now'
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
+    return `${Math.floor(seconds / 86400)}d ago`
   }
 
-  const filteredMembers = members.filter(member => {
-    const matchesSearch = searchTerm === '' || 
-      `${member.firstName} ${member.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.parents.some(parent => 
-        `${parent.firstName} ${parent.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        parent.email.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    
-    const matchesLevel = filterLevel === '' || member.level === filterLevel
-    const matchesStatus = filterStatus === '' || member.status === filterStatus
-    const matchesGender = filterGender === '' || member.gender === filterGender
-    
-    return matchesSearch && matchesLevel && matchesStatus && matchesGender
-  })
-
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      ACTIVE: { bg: 'bg-green-100', text: 'text-green-800', label: 'Active' },
-      INACTIVE: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Inactive' },
-      SUSPENDED: { bg: 'bg-red-100', text: 'text-red-800', label: 'Suspended' },
-      TRIAL: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Trial' }
-    }
-    const config = statusConfig[status] || statusConfig.ACTIVE
+  if (loading) {
     return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.bg} ${config.text}`}>
-        {config.label}
-      </span>
+      <AdminLayout title="Dashboard">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+        </div>
+      </AdminLayout>
     )
   }
 
-  const calculateAge = (dateOfBirth?: string) => {
-    if (!dateOfBirth) return 'N/A'
-    const today = new Date()
-    const birth = new Date(dateOfBirth)
-    const age = today.getFullYear() - birth.getFullYear()
-    const monthDiff = today.getMonth() - birth.getMonth()
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      return age - 1
-    }
-    return age
-  }
-
-  if (!user) {
+  if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg text-gray-600">Loading...</div>
-      </div>
+      <AdminLayout title="Dashboard">
+        <div className="flex flex-col items-center justify-center h-64 space-y-4">
+          <div className="text-red-600 text-lg font-medium">{error}</div>
+          <button
+            onClick={() => {
+              setLoading(true)
+              setError(null)
+              loadDashboardData()
+            }}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </AdminLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Admin Dashboard
-              </h1>
-              <p className="text-gray-600">Welcome back, {user.firstName}!</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-500">
-                Ceres Gymnastics Club
+    <AdminLayout title="Dashboard" description="Overview of your gymnastics club">
+      <div className="space-y-6">
+        {/* Weekly Timetable - At the top */}
+        {weeklyClasses.length > 0 && (
+          <WeeklyTimetable
+            classes={weeklyClasses}
+            onEditClass={(classItem) => router.push('/admin/schedules')}
+          />
+        )}
+
+        {/* Stats Grid - Compact 2-column */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Total Members */}
+          <div className="bg-white border-2 border-blue-200 rounded-xl shadow-sm p-4 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600">Total Members</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{stats.totalMembers}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{stats.activeMembers} active</p>
               </div>
-              <button
-                onClick={handleLogout}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                Logout
-              </button>
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <Users className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Monthly Revenue */}
+          <div className="bg-white border-2 border-emerald-200 rounded-xl shadow-sm p-4 hover:shadow-md hover:border-emerald-300 transition-all cursor-pointer">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600">Monthly Revenue</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.monthlyRevenue)}</p>
+                <p className="text-xs text-emerald-600 mt-0.5 flex items-center font-medium">
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  {stats.revenueChange}% vs last month
+                </p>
+              </div>
+              <div className="p-2 bg-emerald-50 rounded-lg">
+                <DollarSign className="h-6 w-6 text-emerald-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Pending Invoices */}
+          <div className="bg-white border-2 border-orange-200 rounded-xl shadow-sm p-4 hover:shadow-md hover:border-orange-300 transition-all cursor-pointer">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600">Pending Invoices</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{stats.pendingInvoices}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{formatCurrency(stats.outstandingBalance)}</p>
+              </div>
+              <div className="p-2 bg-orange-50 rounded-lg">
+                <FileText className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="bg-white border-2 border-purple-200 rounded-xl shadow-sm p-4 hover:shadow-md hover:border-purple-300 transition-all cursor-pointer" onClick={() => router.push('/admin/import')}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600">Quick Actions</p>
+                <p className="text-lg font-semibold text-gray-900 mt-1">Import Members</p>
+                <p className="text-xs text-gray-500 mt-0.5">Add bulk members →</p>
+              </div>
+              <div className="p-2 bg-purple-50 rounded-lg">
+                <ArrowUpRight className="h-6 w-6 text-purple-600" />
+              </div>
             </div>
           </div>
         </div>
-      </header>
-
-      {/* Navigation Tabs */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="-mb-px flex space-x-8">
-            {[
-              { id: 'overview', name: 'Overview', icon: '📊' },
-              { id: 'members', name: 'Members', icon: '👥' },
-              { id: 'documents', name: 'Documents', icon: '📄' },
-              { id: 'finances', name: 'Finances', icon: '💰' },
-              { id: 'credits', name: 'Credits', icon: '💳' },
-              { id: 'fee-adjustments', name: 'Fee Adjustments', icon: '⚖️' },
-              { id: 'classes', name: 'Classes', icon: '🏃' },
-              { id: 'reports', name: 'Reports', icon: '📈' }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === tab.id
-                    ? 'border-purple-500 text-purple-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <span className="mr-2">{tab.icon}</span>
-                {tab.name}
-              </button>
-            ))}
-          </nav>
-        </div>
       </div>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          {activeTab === 'overview' && (
-            <div className="space-y-6">
-              {/* Stats Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <span className="text-2xl">👥</span>
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Total Members</p>
-                      <p className="text-3xl font-bold text-gray-900">{stats.totalMembers}</p>
-                      <p className="text-sm text-green-600">+{stats.newMembersThisMonth} this month</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <span className="text-2xl">💰</span>
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                      <p className="text-3xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
-                      <p className="text-sm text-gray-500">This month</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-yellow-100 rounded-lg">
-                      <span className="text-2xl">⏳</span>
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Outstanding</p>
-                      <p className="text-3xl font-bold text-gray-900">{formatCurrency(stats.outstandingBalance)}</p>
-                      <p className="text-sm text-orange-600">{stats.pendingPayments} pending payments</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Recent Activity */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
-                </div>
-                <div className="p-6">
-                  {isLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="text-gray-500">Loading activity...</div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {recentActivity.map((activity) => (
-                        <div key={activity.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
-                          <div className="flex items-center">
-                            <span className="text-2xl mr-3">{getActivityIcon(activity.type)}</span>
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{activity.description}</p>
-                              <p className="text-xs text-gray-500">{activity.timestamp}</p>
-                            </div>
-                          </div>
-                          {activity.amount && (
-                            <span className="text-green-600 font-semibold">
-                              {formatCurrency(activity.amount)}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">Quick Actions</h3>
-                </div>
-                <div className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <button 
-                      onClick={() => router.push('/admin/reports')}
-                      className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="text-center">
-                        <span className="text-3xl">📊</span>
-                        <p className="text-sm font-medium text-gray-900 mt-2">Reports</p>
-                      </div>
-                    </button>
-                    <button className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                      <div className="text-center">
-                        <span className="text-3xl">📄</span>
-                        <p className="text-sm font-medium text-gray-900 mt-2">Generate Invoices</p>
-                      </div>
-                    </button>
-                    <button 
-                      onClick={() => router.push('/admin/notifications')}
-                      className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="text-center">
-                        <span className="text-3xl">📧</span>
-                        <p className="text-sm font-medium text-gray-900 mt-2">Notifications</p>
-                      </div>
-                    </button>
-                    <button 
-                      onClick={() => router.push('/admin/schedules')}
-                      className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="text-center">
-                        <span className="text-3xl">📅</span>
-                        <p className="text-sm font-medium text-gray-900 mt-2">Schedules</p>
-                      </div>
-                    </button>
-                    <button 
-                      onClick={() => router.push('/admin/credits')}
-                      className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="text-center">
-                        <span className="text-3xl">💳</span>
-                        <p className="text-sm font-medium text-gray-900 mt-2">Credits</p>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'members' && (
-            <div className="space-y-6">
-              {/* Members Header */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">Members Management</h3>
-                      <p className="text-sm text-gray-600">Manage club members and their information</p>
-                    </div>
-                    <button
-                      onClick={() => alert('Add member functionality coming soon!')}
-                      className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
-                    >
-                      Add New Member
-                    </button>
-                  </div>
-                </div>
-
-                {/* Search and Filters */}
-                <div className="p-6 border-b border-gray-200">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-                      <input
-                        type="text"
-                        placeholder="Search members or parents..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Level</label>
-                      <select
-                        value={filterLevel}
-                        onChange={(e) => setFilterLevel(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                      >
-                        <option value="">All Levels</option>
-                        <option value="Level RR">Level RR</option>
-                        <option value="Level R">Level R</option>
-                        <option value="Level 1">Level 1</option>
-                        <option value="Level 2">Level 2</option>
-                        <option value="Level 3">Level 3</option>
-                        <option value="Level 4">Level 4</option>
-                        <option value="Level 5">Level 5</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                      <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                      >
-                        <option value="">All Status</option>
-                        <option value="ACTIVE">Active</option>
-                        <option value="INACTIVE">Inactive</option>
-                        <option value="SUSPENDED">Suspended</option>
-                        <option value="TRIAL">Trial</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
-                      <select
-                        value={filterGender}
-                        onChange={(e) => setFilterGender(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                      >
-                        <option value="">All Genders</option>
-                        <option value="MALE">Male</option>
-                        <option value="FEMALE">Female</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Members List */}
-                <div className="p-6">
-                  {membersLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="text-gray-500">Loading members...</div>
-                    </div>
-                  ) : filteredMembers.length === 0 ? (
-                    <div className="text-center py-8">
-                      <span className="text-4xl">👥</span>
-                      <h3 className="text-lg font-medium text-gray-900 mt-2">No members found</h3>
-                      <p className="text-gray-500">
-                        {searchTerm || filterLevel || filterStatus || filterGender
-                          ? 'Try adjusting your search criteria' 
-                          : 'Add your first member to get started'
-                        }
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Member
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Level
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Gender
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Status
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Parent(s)
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Monthly Fee
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {filteredMembers.map((member) => (
-                            <tr key={member.id} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div>
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {member.firstName} {member.lastName}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    Age: {calculateAge(member.dateOfBirth)}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                  {member.level}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                  member.gender === 'MALE' 
-                                    ? 'bg-blue-100 text-blue-800' 
-                                    : member.gender === 'FEMALE'
-                                    ? 'bg-pink-100 text-pink-800'
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {member.gender === 'MALE' ? 'Male' : member.gender === 'FEMALE' ? 'Female' : 'N/A'}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                {getStatusBadge(member.status)}
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="space-y-1">
-                                  {member.parents.map((parent) => (
-                                    <div key={parent.id} className="text-sm">
-                                      <div className="font-medium text-gray-900">
-                                        {parent.firstName} {parent.lastName}
-                                      </div>
-                                      <div className="text-gray-500">{parent.email}</div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {formatCurrency(member.monthlyFee)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <div className="flex space-x-2">
-                                  <button className="text-purple-600 hover:text-purple-900">
-                                    Edit
-                                  </button>
-                                  <button className="text-red-600 hover:text-red-900">
-                                    Delete
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'documents' && (
-            <div className="space-y-6">
-              {/* Documents Header */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">Document Management</h3>
-                      <p className="text-sm text-gray-600">Upload and manage club documents and forms</p>
-                    </div>
-                    <button
-                      onClick={() => alert('Document upload coming soon!')}
-                      className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
-                    >
-                      📄 Upload Document
-                    </button>
-                  </div>
-                </div>
-
-                <div className="p-6">
-                  <div className="text-center py-8">
-                    <span className="text-6xl">📄</span>
-                    <h3 className="text-xl font-semibold text-gray-900 mt-4 mb-2">
-                      Document Management System
-                    </h3>
-                    <p className="text-gray-600 mb-6">
-                      Complete POPI Act compliant document management with digital signatures.
-                    </p>
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                      <p className="text-sm text-green-800">
-                        <strong>✅ Features Available:</strong>
-                      </p>
-                      <ul className="text-sm text-green-700 mt-2 space-y-1">
-                        <li>• Document upload and categorization</li>
-                        <li>• Digital signature collection</li>
-                        <li>• Consent tracking and management</li>
-                        <li>• POPI Act compliance audit trails</li>
-                        <li>• Automated reminders for unsigned documents</li>
-                      </ul>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="p-4 border border-gray-200 rounded-lg">
-                        <span className="text-2xl">📋</span>
-                        <h4 className="font-medium text-gray-900 mt-2">Policies & Forms</h4>
-                        <p className="text-sm text-gray-600">Privacy policies, terms, consent forms</p>
-                      </div>
-                      <div className="p-4 border border-gray-200 rounded-lg">
-                        <span className="text-2xl">✍️</span>
-                        <h4 className="font-medium text-gray-900 mt-2">Digital Signatures</h4>
-                        <p className="text-sm text-gray-600">Collect legally binding signatures</p>
-                      </div>
-                      <div className="p-4 border border-gray-200 rounded-lg">
-                        <span className="text-2xl">🔒</span>
-                        <h4 className="font-medium text-gray-900 mt-2">POPI Compliance</h4>
-                        <p className="text-sm text-gray-600">Full audit trails and consent tracking</p>
-                      </div>
-                    </div>
-                    <div className="mt-6">
-                      <p className="text-sm text-gray-500">
-                        API endpoints are ready. Frontend interface coming soon!
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'credits' && (
-            <div className="space-y-6">
-              {/* Credits Header */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">Credit Management</h3>
-                      <p className="text-sm text-gray-600">Manage prepayments, credit balances, and overpayments</p>
-                    </div>
-                    <button
-                      onClick={() => router.push('/admin/credits')}
-                      className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
-                    >
-                      💳 Open Credit Manager
-                    </button>
-                  </div>
-                </div>
-
-                <div className="p-6">
-                  <div className="text-center py-8">
-                    <span className="text-6xl">💳</span>
-                    <h3 className="text-xl font-semibold text-gray-900 mt-4 mb-2">
-                      Credit & Prepayment System
-                    </h3>
-                    <p className="text-gray-600 mb-6">
-                      Complete credit management system for handling prepayments and overpayments.
-                    </p>
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                      <p className="text-sm text-green-800">
-                        <strong>✅ Features Available:</strong>
-                      </p>
-                      <ul className="text-sm text-green-700 mt-2 space-y-1">
-                        <li>• Automatic credit account creation</li>
-                        <li>• Credit balance tracking and management</li>
-                        <li>• Overpayment processing and conversion</li>
-                        <li>• Credit application to invoices</li>
-                        <li>• Transaction history and audit trails</li>
-                        <li>• Parent credit account dashboard</li>
-                      </ul>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="p-4 border border-gray-200 rounded-lg">
-                        <span className="text-2xl">💰</span>
-                        <h4 className="font-medium text-gray-900 mt-2">Credit Accounts</h4>
-                        <p className="text-sm text-gray-600">Manage user credit balances and prepayments</p>
-                      </div>
-                      <div className="p-4 border border-gray-200 rounded-lg">
-                        <span className="text-2xl">🔄</span>
-                        <h4 className="font-medium text-gray-900 mt-2">Overpayment Processing</h4>
-                        <p className="text-sm text-gray-600">Handle payment overages automatically</p>
-                      </div>
-                      <div className="p-4 border border-gray-200 rounded-lg">
-                        <span className="text-2xl">📊</span>
-                        <h4 className="font-medium text-gray-900 mt-2">Transaction History</h4>
-                        <p className="text-sm text-gray-600">Complete audit trails and reporting</p>
-                      </div>
-                    </div>
-                    <div className="mt-6">
-                      <button
-                        onClick={() => router.push('/admin/credits')}
-                        className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors font-medium"
-                      >
-                        Open Credit Management Dashboard
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'fee-adjustments' && (
-            <FeeAdjustmentManager />
-          )}
-
-          {(activeTab !== 'overview' && activeTab !== 'members' && activeTab !== 'documents' && activeTab !== 'credits' && activeTab !== 'fee-adjustments') && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-              <div className="text-center">
-                <span className="text-6xl">🚧</span>
-                <h3 className="text-xl font-semibold text-gray-900 mt-4 mb-2">
-                  {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Section
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  This section is currently under development. Advanced functionality will be available soon.
-                </p>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">
-                    <strong>Coming Soon:</strong> Comprehensive {activeTab} management with full CRUD operations, 
-                    search functionality, and detailed reporting.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </main>
-    </div>
+    </AdminLayout>
   )
 }

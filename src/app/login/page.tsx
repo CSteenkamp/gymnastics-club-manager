@@ -16,14 +16,12 @@ export default function LoginPage() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
-    setSuccess('')
 
     try {
       console.log('🔄 Attempting login to:', window.location.origin + '/api/auth/login')
@@ -44,25 +42,22 @@ export default function LoginPage() {
       console.log('📦 Response data:', data)
 
       if (data.success) {
-        setSuccess('Login successful! Redirecting...')
         localStorage.setItem('token', data.data.token)
         localStorage.setItem('user', JSON.stringify(data.data.user))
-        
-        setTimeout(() => {
-          // Check for redirect URL from query params
-          const urlParams = new URLSearchParams(window.location.search)
-          const redirectTo = urlParams.get('redirectTo')
-          
-          if (redirectTo && redirectTo !== '/login') {
-            window.location.replace(redirectTo)
-          } else if (data.data.user.role === 'SUPER_ADMIN') {
-            window.location.replace('/super-admin')
-          } else if (data.data.user.role === 'ADMIN' || data.data.user.role === 'FINANCE_ADMIN') {
-            window.location.replace('/admin')
-          } else {
-            window.location.replace('/dashboard')
-          }
-        }, 1000)
+
+        // Check for redirect URL from query params
+        const urlParams = new URLSearchParams(window.location.search)
+        const redirectTo = urlParams.get('redirectTo')
+
+        if (redirectTo && redirectTo !== '/login') {
+          window.location.replace(redirectTo)
+        } else if (data.data.user.role === 'SUPER_ADMIN') {
+          window.location.replace('/super-admin')
+        } else if (data.data.user.role === 'ADMIN' || data.data.user.role === 'FINANCE_ADMIN') {
+          window.location.replace('/admin')
+        } else {
+          window.location.replace('/dashboard')
+        }
       } else {
         setError(data.error || 'Login failed')
       }
@@ -196,17 +191,6 @@ export default function LoginPage() {
             </div>
 
             {/* Messages */}
-            {success && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
-                <div className="flex items-center">
-                  <svg className="w-5 h-5 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                  <span className="text-green-800 font-medium">{success}</span>
-                </div>
-              </div>
-            )}
-
             {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
                 <div className="flex items-center">

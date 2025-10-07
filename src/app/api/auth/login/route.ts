@@ -53,13 +53,16 @@ export async function POST(request: NextRequest) {
     const token = generateToken(user)
 
     // Return user data (without password)
-    const { password: _, ...userWithoutPassword } = user
+    const { password: _, club, ...userWithoutPassword } = user
 
     // Create response with cookie
     const response = NextResponse.json<ApiResponse>({
       success: true,
       data: {
-        user: userWithoutPassword,
+        user: {
+          ...userWithoutPassword,
+          club
+        },
         token
       },
       message: 'Login successful'
@@ -78,7 +81,10 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Login error:', error)
-    
+    console.error('Error name:', error.name)
+    console.error('Error message:', error.message)
+    console.error('Error stack:', error.stack)
+
     if (error.name === 'ZodError') {
       return NextResponse.json<ApiResponse>({
         success: false,
@@ -89,7 +95,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json<ApiResponse>({
       success: false,
-      error: 'Internal server error'
+      error: 'Internal server error',
+      message: process.env.NODE_ENV === 'development' ? error.message : undefined
     }, { status: 500 })
   }
 }

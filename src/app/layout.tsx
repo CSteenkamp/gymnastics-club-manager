@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { PWAProvider } from "@/components/pwa/PWAProvider";
 import { PWAInstallPrompt, PWAUpdatePrompt } from "@/components/pwa/PWAInstallPrompt";
-import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
+import { BrandingProvider } from "@/contexts/BrandingContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -77,14 +77,15 @@ export default function RootLayout({
         <meta name="msapplication-navbutton-color" content="#7c3aed" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <PWAProvider>
-          {children}
-          <PWAInstallPrompt />
-          <PWAUpdatePrompt />
-          <OfflineIndicator />
-        </PWAProvider>
+        <BrandingProvider>
+          <PWAProvider>
+            {children}
+            <PWAInstallPrompt />
+            <PWAUpdatePrompt />
+          </PWAProvider>
+        </BrandingProvider>
       </body>
     </html>
   );

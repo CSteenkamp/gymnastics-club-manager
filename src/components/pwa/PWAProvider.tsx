@@ -11,8 +11,17 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
 
   const registerServiceWorker = async () => {
     try {
-      console.log('[PWA] Registering service worker...')
-      
+      // Unregister all existing service workers first
+      const registrations = await navigator.serviceWorker.getRegistrations()
+      for (let registration of registrations) {
+        await registration.unregister()
+        console.log('[PWA] Unregistered old service worker')
+      }
+
+      console.log('[PWA] Service worker disabled for development')
+      return
+
+      /* Temporarily disabled
       const registration = await navigator.serviceWorker.register('/sw.js', {
         scope: '/'
       })
@@ -46,9 +55,9 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
 
       // Check if there's an update available immediately
       registration.update()
-
+      */
     } catch (error) {
-      console.error('[PWA] Service worker registration failed:', error)
+      console.error('[PWA] Service worker unregistration failed:', error)
     }
   }
 

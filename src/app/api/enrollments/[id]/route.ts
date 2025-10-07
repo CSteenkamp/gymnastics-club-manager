@@ -34,13 +34,13 @@ export async function GET(
         clubId: payload.clubId
       },
       include: {
-        child: {
+        children: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
             level: true,
-            parents: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -51,7 +51,7 @@ export async function GET(
             }
           }
         },
-        schedule: {
+        schedules: {
           select: {
             id: true,
             name: true,
@@ -61,7 +61,7 @@ export async function GET(
             endTime: true,
             location: true,
             maxCapacity: true,
-            coach: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -82,7 +82,7 @@ export async function GET(
 
     // For parents, verify they can access this enrollment
     if (payload.role === 'PARENT') {
-      const isParentOfChild = enrollment.child.parents.some(parent => parent.id === payload.userId)
+      const isParentOfChild = enrollment.children.users.some(parent => parent.id === payload.userId)
       if (!isParentOfChild) {
         return NextResponse.json<ApiResponse>({
           success: false,
@@ -138,9 +138,9 @@ export async function PUT(
         clubId: payload.clubId
       },
       include: {
-        child: {
+        children: {
           include: {
-            parents: {
+            users: {
               select: { id: true }
             }
           }
@@ -157,7 +157,7 @@ export async function PUT(
 
     // For parents, verify they can modify this enrollment
     if (payload.role === 'PARENT') {
-      const isParentOfChild = existingEnrollment.child.parents.some(parent => parent.id === payload.userId)
+      const isParentOfChild = existingEnrollment.children.users.some(parent => parent.id === payload.userId)
       if (!isParentOfChild) {
         return NextResponse.json<ApiResponse>({
           success: false,
@@ -179,7 +179,7 @@ export async function PUT(
       where: { id: params.id },
       data: updateData,
       include: {
-        child: {
+        children: {
           select: {
             id: true,
             firstName: true,
@@ -187,7 +187,7 @@ export async function PUT(
             level: true
           }
         },
-        schedule: {
+        schedules: {
           select: {
             id: true,
             name: true,
@@ -196,7 +196,7 @@ export async function PUT(
             startTime: true,
             endTime: true,
             location: true,
-            coach: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -256,9 +256,9 @@ export async function DELETE(
         clubId: payload.clubId
       },
       include: {
-        child: {
+        children: {
           include: {
-            parents: {
+            users: {
               select: { id: true }
             }
           }
@@ -275,7 +275,7 @@ export async function DELETE(
 
     // For parents, verify they can delete this enrollment
     if (payload.role === 'PARENT') {
-      const isParentOfChild = existingEnrollment.child.parents.some(parent => parent.id === payload.userId)
+      const isParentOfChild = existingEnrollment.children.users.some(parent => parent.id === payload.userId)
       if (!isParentOfChild) {
         return NextResponse.json<ApiResponse>({
           success: false,

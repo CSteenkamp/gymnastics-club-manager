@@ -100,8 +100,8 @@ export function PWAInstallPrompt() {
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50 md:left-auto md:max-w-sm">
-      <Card className="border-purple-200 shadow-lg">
-        <CardContent className="p-4">
+      <Card className="border-purple-200 shadow-lg bg-white">
+        <CardContent className="p-4 bg-white">
           <div className="flex items-start gap-3">
             <div className="p-2 bg-purple-100 rounded-lg flex-shrink-0">
               <Smartphone className="h-5 w-5 text-purple-600" />
@@ -193,8 +193,8 @@ export function PWAUpdatePrompt() {
 
   return (
     <div className="fixed top-4 left-4 right-4 z-50 md:left-auto md:max-w-sm md:right-4">
-      <Card className="border-blue-200 shadow-lg">
-        <CardContent className="p-4">
+      <Card className="border-blue-200 shadow-lg bg-white">
+        <CardContent className="p-4 bg-white">
           <div className="flex items-start gap-3">
             <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
               <Download className="h-5 w-5 text-blue-600" />

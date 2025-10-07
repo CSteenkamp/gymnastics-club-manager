@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
 import { ApiResponse } from '@/types'
 import { DayOfWeek } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 // GET all schedules for a club
 export async function GET(request: NextRequest) {
@@ -74,9 +75,26 @@ export async function GET(request: NextRequest) {
       ]
     })
 
+    // Transform the data to match frontend expectations
+    const transformedSchedules = schedules.map(schedule => ({
+      id: schedule.id,
+      name: schedule.name,
+      description: schedule.description || '',
+      level: schedule.level,
+      dayOfWeek: schedule.dayOfWeek,
+      startTime: schedule.startTime,
+      endTime: schedule.endTime,
+      maxCapacity: schedule.maxCapacity,
+      currentEnrollment: schedule._count.enrollments,
+      venue: schedule.location || '',
+      isActive: schedule.isActive,
+      coach: schedule.coach,
+      enrollments: schedule.enrollments
+    }))
+
     return NextResponse.json<ApiResponse>({
       success: true,
-      data: schedules
+      data: transformedSchedules
     })
 
   } catch (error) {
@@ -141,12 +159,23 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Validate dayOfWeek
+    // Convert day names to enum values
+    const dayMapping: { [key: string]: DayOfWeek } = {
+      'Monday': 'MONDAY',
+      'Tuesday': 'TUESDAY', 
+      'Wednesday': 'WEDNESDAY',
+      'Thursday': 'THURSDAY',
+      'Friday': 'FRIDAY',
+      'Saturday': 'SATURDAY',
+      'Sunday': 'SUNDAY'
+    }
+    
+    const mappedDay = dayMapping[dayOfWeek] || dayOfWeek
     const validDays = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
-    if (!validDays.includes(dayOfWeek)) {
+    if (!validDays.includes(mappedDay)) {
       return NextResponse.json<ApiResponse>({
         success: false,
-        error: 'Invalid dayOfWeek. Must be one of: ' + validDays.join(', ')
+        error: 'Invalid dayOfWeek. Must be one of: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday'
       }, { status: 400 })
     }
 
@@ -154,7 +183,7 @@ export async function POST(request: NextRequest) {
     const conflictingSchedule = await prisma.schedule.findFirst({
       where: {
         clubId: payload.clubId,
-        dayOfWeek: dayOfWeek as DayOfWeek,
+        dayOfWeek: mappedDay as DayOfWeek,
         isActive: true,
         OR: [
           {
@@ -207,16 +236,18 @@ export async function POST(request: NextRequest) {
 
     const schedule = await prisma.schedule.create({
       data: {
+        id: randomUUID(),
         clubId: payload.clubId,
         name,
         level,
-        coachId,
-        dayOfWeek: dayOfWeek as DayOfWeek,
+        coachId: coachId || null,
+        dayOfWeek: mappedDay as DayOfWeek,
         startTime,
         endTime,
         maxCapacity: maxCapacity || 12,
         location,
-        description
+        description,
+        updatedAt: new Date()
       },
       include: {
         coach: {
