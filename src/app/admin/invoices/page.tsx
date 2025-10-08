@@ -170,7 +170,51 @@ export default function InvoicesPage() {
     loadInvoices()
     loadParents()
     loadChildren()
+    loadAdjustments()
+    loadOneTimeItems()
   }, [filterStatus, filterMonth, filterYear])
+
+  const loadAdjustments = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/fees/adjustments', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setAdjustments(data.data)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading adjustments:', error)
+    }
+  }
+
+  const loadOneTimeItems = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/fees/one-time-items', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setOneTimeItems(data.data)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading one-time items:', error)
+    }
+  }
 
   const loadInvoices = async () => {
     setLoading(true)
@@ -391,6 +435,92 @@ export default function InvoicesPage() {
     }
   }
 
+  const handleCreateAdjustment = async () => {
+    if (!adjustmentForm.childId || !adjustmentForm.type || !adjustmentForm.amount) {
+      alert('Please fill in all required fields')
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/fees/adjustments', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...adjustmentForm,
+          amount: parseFloat(adjustmentForm.amount)
+        })
+      })
+
+      if (response.ok) {
+        setShowAdjustmentModal(false)
+        setAdjustmentForm({
+          childId: '',
+          type: '',
+          amount: '',
+          reason: '',
+          effectiveFrom: new Date().toISOString().split('T')[0],
+          effectiveTo: '',
+          recurring: false
+        })
+        await loadAdjustments()
+        alert('Fee adjustment created successfully')
+      } else {
+        const data = await response.json()
+        alert(data.error || 'Failed to create fee adjustment')
+      }
+    } catch (error) {
+      console.error('Error creating adjustment:', error)
+      alert('Error creating fee adjustment')
+    }
+  }
+
+  const handleCreateOneTimeItem = async () => {
+    if (!oneTimeForm.childId || !oneTimeForm.description || !oneTimeForm.category || !oneTimeForm.amount || !oneTimeForm.billingPeriod) {
+      alert('Please fill in all required fields')
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/fees/one-time-items', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...oneTimeForm,
+          amount: parseFloat(oneTimeForm.amount)
+        })
+      })
+
+      if (response.ok) {
+        setShowOneTimeModal(false)
+        setOneTimeForm({
+          childId: '',
+          description: '',
+          category: '',
+          amount: '',
+          billingPeriod: '',
+          status: 'PENDING',
+          notes: ''
+        })
+        await loadOneTimeItems()
+        alert('One-time item created successfully')
+      } else {
+        const data = await response.json()
+        alert(data.error || 'Failed to create one-time item')
+      }
+    } catch (error) {
+      console.error('Error creating one-time item:', error)
+      alert('Error creating one-time item')
+    }
+  }
+
   const filteredInvoices = invoices.filter(invoice => {
     const matchesSearch = searchTerm === '' ||
       invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -440,9 +570,57 @@ export default function InvoicesPage() {
   }
 
   return (
-    <AdminLayout title="Invoices" description="Manage club invoices and billing">
+    <AdminLayout title="Invoices & Fees" description="Manage club invoices, fees, and billing">
       <div className="space-y-6">
+        {/* Tabs */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="border-b border-gray-200">
+            <div className="flex">
+              <button
+                onClick={() => setActiveTab('invoices')}
+                className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === 'invoices'
+                    ? 'border-purple-600 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Invoices
+                </div>
+              </button>
+              <button
+                onClick={() => setActiveTab('adjustments')}
+                className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === 'adjustments'
+                    ? 'border-purple-600 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <TrendingDown className="h-4 w-4" />
+                  Fee Adjustments
+                </div>
+              </button>
+              <button
+                onClick={() => setActiveTab('onetime')}
+                className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === 'onetime'
+                    ? 'border-purple-600 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Tag className="h-4 w-4" />
+                  One-Time Items
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Main Content */}
+        {activeTab === 'invoices' && (
         <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -647,6 +825,7 @@ export default function InvoicesPage() {
         </div>
 
         {/* Stats Cards - Compact */}
+        {activeTab === 'invoices' && (
         <div className="bg-white border-2 border-gray-200 rounded-xl shadow-sm p-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="flex items-center gap-3">
@@ -692,6 +871,143 @@ export default function InvoicesPage() {
             </div>
           </div>
         </div>
+        )}
+
+        {/* Fee Adjustments Tab */}
+        {activeTab === 'adjustments' && (
+          <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">Fee Adjustments</h3>
+              <button
+                onClick={() => setShowAdjustmentModal(true)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Adjustment
+              </button>
+            </div>
+
+            {adjustments.length === 0 ? (
+              <div className="text-center py-12">
+                <TrendingDown className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No fee adjustments</h3>
+                <p className="text-gray-500 text-sm mb-4">Create your first fee adjustment to get started</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Child</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recurring</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {adjustments.map((adjustment) => (
+                      <tr key={adjustment.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                          {adjustment.child ? `${adjustment.child.firstName} ${adjustment.child.lastName}` : 'Unknown'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                            {adjustment.type.replace(/_/g, ' ')}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 font-semibold">
+                          {formatCurrency(adjustment.amount)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{adjustment.reason}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {new Date(adjustment.effectiveFrom).toLocaleDateString()}
+                          {adjustment.effectiveTo && ` - ${new Date(adjustment.effectiveTo).toLocaleDateString()}`}
+                        </td>
+                        <td className="px-4 py-3">
+                          {adjustment.recurring ? (
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <X className="h-4 w-4 text-gray-400" />
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* One-Time Items Tab */}
+        {activeTab === 'onetime' && (
+          <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">One-Time Items</h3>
+              <button
+                onClick={() => setShowOneTimeModal(true)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add One-Time Item
+              </button>
+            </div>
+
+            {oneTimeItems.length === 0 ? (
+              <div className="text-center py-12">
+                <Receipt className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No one-time items</h3>
+                <p className="text-gray-500 text-sm mb-4">Create your first one-time item to get started</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Child</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Billing Period</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {oneTimeItems.map((item) => (
+                      <tr key={item.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                          {item.child ? `${item.child.firstName} ${item.child.lastName}` : 'Unknown'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{item.description}</td>
+                        <td className="px-4 py-3">
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                            {item.category.replace(/_/g, ' ')}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 font-semibold">
+                          {formatCurrency(item.amount)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{item.billingPeriod}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            item.status === 'PAID' ? 'bg-green-100 text-green-800' :
+                            item.status === 'BILLED' ? 'bg-blue-100 text-blue-800' :
+                            item.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {item.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Create Invoice Modal */}
@@ -1134,6 +1450,276 @@ export default function InvoicesPage() {
                 className="px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Fee Adjustment Modal */}
+      {showAdjustmentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white">
+              <h3 className="text-lg font-semibold text-gray-900">Add Fee Adjustment</h3>
+              <button
+                onClick={() => setShowAdjustmentModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Child <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={adjustmentForm.childId}
+                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, childId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                >
+                  <option value="">Select a child</option>
+                  {children.map((child) => (
+                    <option key={child.id} value={child.id}>
+                      {child.firstName} {child.lastName} ({child.level})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={adjustmentForm.type}
+                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, type: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                >
+                  <option value="">Select type</option>
+                  {ADJUSTMENT_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type.replace(/_/g, ' ')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Amount <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={adjustmentForm.amount}
+                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, amount: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  placeholder="0.00"
+                  step="0.01"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Reason <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={adjustmentForm.reason}
+                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, reason: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  rows={3}
+                  placeholder="Enter reason for adjustment..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Effective From <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={adjustmentForm.effectiveFrom}
+                    onChange={(e) => setAdjustmentForm({ ...adjustmentForm, effectiveFrom: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Effective To
+                  </label>
+                  <input
+                    type="date"
+                    value={adjustmentForm.effectiveTo}
+                    onChange={(e) => setAdjustmentForm({ ...adjustmentForm, effectiveTo: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="recurring"
+                  checked={adjustmentForm.recurring}
+                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, recurring: e.target.checked })}
+                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <label htmlFor="recurring" className="text-sm text-gray-700">
+                  Recurring adjustment
+                </label>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50">
+              <button
+                onClick={() => setShowAdjustmentModal(false)}
+                className="px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateAdjustment}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+              >
+                Create Adjustment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create One-Time Item Modal */}
+      {showOneTimeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white">
+              <h3 className="text-lg font-semibold text-gray-900">Add One-Time Item</h3>
+              <button
+                onClick={() => setShowOneTimeModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Child <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={oneTimeForm.childId}
+                  onChange={(e) => setOneTimeForm({ ...oneTimeForm, childId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                >
+                  <option value="">Select a child</option>
+                  {children.map((child) => (
+                    <option key={child.id} value={child.id}>
+                      {child.firstName} {child.lastName} ({child.level})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={oneTimeForm.description}
+                  onChange={(e) => setOneTimeForm({ ...oneTimeForm, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  placeholder="e.g., Competition entry fee"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Category <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={oneTimeForm.category}
+                  onChange={(e) => setOneTimeForm({ ...oneTimeForm, category: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                >
+                  <option value="">Select category</option>
+                  {ONE_TIME_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {category.replace(/_/g, ' ')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Amount <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={oneTimeForm.amount}
+                  onChange={(e) => setOneTimeForm({ ...oneTimeForm, amount: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  placeholder="0.00"
+                  step="0.01"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Billing Period <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="month"
+                  value={oneTimeForm.billingPeriod}
+                  onChange={(e) => setOneTimeForm({ ...oneTimeForm, billingPeriod: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Status
+                </label>
+                <select
+                  value={oneTimeForm.status}
+                  onChange={(e) => setOneTimeForm({ ...oneTimeForm, status: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                >
+                  {STATUS_OPTIONS.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes
+                </label>
+                <textarea
+                  value={oneTimeForm.notes}
+                  onChange={(e) => setOneTimeForm({ ...oneTimeForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  rows={3}
+                  placeholder="Additional notes..."
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50">
+              <button
+                onClick={() => setShowOneTimeModal(false)}
+                className="px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateOneTimeItem}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+              >
+                Create Item
               </button>
             </div>
           </div>
